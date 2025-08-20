@@ -1,0 +1,29 @@
+services:
+  tfserving:
+    image: tensorflow/serving:2.14.1
+    environment:
+      - MODEL_NAME=deepfake
+      - MODEL_BASE_PATH=/models
+    volumes:
+      - ./models/deepfake:/models/deepfake:ro
+    ports:
+      - "8501:8501"
+
+  api:
+    build:
+      context: .          # use repo root as context
+      dockerfile: Dockerfile  # use the root Dockerfile you already have
+    environment:
+      - TF_SERVING_URL=http://tfserving:8501
+      - MODEL_NAME=deepfake
+      - MODEL_VERSION=1
+      - THRESHOLD=0.5
+      - DEFAULT_FPS=2.0
+      - MAX_FRAMES=256
+      - REQUEST_TIMEOUT=30
+      - REQUIRE_AUTH=false
+      - JWT_SECRET=change-me
+    depends_on:
+      - tfserving
+    ports:
+      - "8000:8000"
