@@ -1,212 +1,282 @@
-## Deepfake Detector (DFD)
+<!-- PROJECT LOGO -->
+<p align="center">
+  <img src="assets/logo.png" alt="DFD Logo" width="200" />`
+</p>
 
-[![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.116-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![OpenCV](https://img.shields.io/badge/OpenCV-4.12.0.88-5C3EE8?logo=opencv&logoColor=white)](https://opencv.org/)
-[![TensorFlow Serving](https://img.shields.io/badge/TensorFlow%20Serving-2.14-F9AB00?logo=tensorflow&logoColor=white)](https://www.tensorflow.org/tfx/guide/serving)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
-[![Poetry](https://img.shields.io/badge/Poetry-managed-60A5FA?logo=poetry&logoColor=white)](https://python-poetry.org/)
+<h1 align="center">🕵️‍♀️ Deepfake Detection (DFD)</h1>
 
-An end‑to‑end, containerized deepfake detection system. It pairs a face‑centric video preprocessor (OpenCV + Haar cascade) with a TensorFlow Serving model endpoint and exposes a clean FastAPI for real‑time predictions.
+<p align="center">
+  <b>An end-to-end, production-ready deepfake detection system</b><br>
+  <i>FastAPI · TensorFlow Serving · EfficientNetB0 · OpenCV · Docker</i>
+</p>
 
-- **Input**: a video file (e.g., MP4)
-- **Processing**: sample frames at target FPS, detect and crop faces, normalize to 64×64 RGB
-- **Model**: EfficientNet‑B0 based classifier (trained with oversampling; see notebooks)
-- **Output**: overall deepfake score and label, plus per‑frame scores and metadata
+<p align="center">
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white" /></a>
+  <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.116-009688?logo=fastapi&logoColor=white" /></a>
+  <a href="https://www.tensorflow.org/tfx/guide/serving"><img src="https://img.shields.io/badge/TensorFlow%20Serving-2.14-FF6F00?logo=tensorflow&logoColor=white" /></a>
+  <a href="https://opencv.org/"><img src="https://img.shields.io/badge/OpenCV-4.12-5C3EE8?logo=opencv&logoColor=white" /></a>
+  <a href="https://python-poetry.org/"><img src="https://img.shields.io/badge/Poetry-2.x-60A5FA?logo=poetry&logoColor=white" /></a>
+  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" /></a>
+</p>
 
-Explore the interactive docs at `http://localhost:8000/docs` once the stack is up.
+---
 
-### Why this repo?
-- **Practical pipeline**: from raw video to face patches ready for inference
-- **Production‑friendly**: decoupled API and model via TF Serving, versioned models in `models/deepfake/{version}`
-- **Simple deploy**: `docker compose up` and you’re testing deepfakes in minutes
+## 📑 Table of Contents
+- [Overview](#overview)
+- [Why Use DFD?](#why-use-dfd)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Repository Layout](#repository-layout)
+- [Quickstart](#quickstart)
+- [Demo](#demo)
+- [Screenshots](#screenshots)
+- [Model Training & Export](#model-training--export)
+- [API Reference](#api-reference)
+- [Configuration](#configuration)
+- [Development](#development)
+- [Roadmap](#roadmap)
+- [Datasets & Citations](#datasets--citations)
+- [Troubleshooting](#troubleshooting)
+- [FAQ](#faq)
+- [Community & Support](#community--support)
+- [License](#license)
+- [Maintainer](#maintainer)
 
-## Architecture
+---
 
+## 📝 Overview
+DFD is a robust, scalable deepfake detection system designed for research and production. It leverages state-of-the-art computer vision and deep learning techniques to detect manipulated videos with high accuracy.
+
+---
+
+## ❓ Why Use DFD?
+- 🚀 **Fast & Scalable**: Built with FastAPI and TensorFlow Serving for high throughput.
+- 🧠 **Modern ML Backbone**: EfficientNetB0, oversampling, and mixed precision for best results.
+- 🛠️ **Easy Deployment**: Docker Compose orchestration, simple config.
+- 🔒 **Secure**: Optional JWT authentication.
+- 🧩 **Extensible**: Modular codebase, easy to add new models or preprocessing steps.
+
+---
+
+## ✨ Features
+- Video upload and inference via REST API
+- Per-frame face extraction and scoring
+- Aggregated fake/real decision
+- Configurable via environment variables
+- Exportable models for TensorFlow Serving
+- Demo and Swagger UI
+- Dockerized for reproducibility
+
+---
+
+## 🏗️ Architecture
 ```mermaid
 flowchart LR
-  U["Client<br/>video upload"] -- MP4 --> API["FastAPI<br/>/predict"]
-  subgraph Preprocess [OpenCV Preprocess]
-    F1["Sample frames @ target FPS"]
-    F2["Detect faces (Haar)"]
-    F3["Expand bbox + crop"]
-    F4["RGB 64×64 / 255.0"]
+  A[Client / SDK / cURL] -->|HTTP: /predict| B(FastAPI Service)
+  B -->|frames, 64x64, RGB| C[Preprocessing\nOpenCV Haar + sampling]
+  C -->|POST /v1/models/deepfake:predict| D[TensorFlow Serving]
+  D -->|scores per frame| B
+  B -->|JSON: {score, label, frame_samples}| A
+  subgraph Runtime
+    B
+    C
+    D
   end
-  API --> Preprocess --> BATCH["N × 64 × 64 × 3"]
-  BATCH -- HTTP/JSON --> TFS[("TensorFlow Serving<br/>models/deepfake/<ver>")]
-  TFS -- predictions --> API
-  API -- JSON --> U
 ```
 
-## Repository Map
-- `api/app/main.py`: FastAPI with `/health` and `/predict`
-- `api/app/inference.py`: frame extraction, face detection, TF Serving client, aggregation
-- `settings.py`: all tunables via environment variables
-- `docker-compose.yml`: two services — `tfserving` and `api`
-- `models/deepfake/1/`: SavedModel for TF Serving; add new versions as `2/`, `3/`, ...
-- `EfficientB0_OVERSAMPLING.ipynb`: training + oversampling pipeline
-- `EB0_OVS_PREDICTIONS.ipynb`: evaluation/predictions exploration
+---
 
-## Quickstart
+## 📁 Repository Layout
+- `api/app/main.py`: FastAPI app exposing `/health` and `/predict`
+- `api/app/inference.py`: Frame extraction, face detection, preprocessing, TF‑Serving client, aggregation
+- `settings.py`: Centralized configuration via environment variables
+- `docker-compose.yml`: Two services: `tfserving` and `api`
+- `Dockerfile`: Builds API image with Poetry and system deps (ffmpeg, OpenCV libs)
+- `EfficientB0_OVERSAMPLING.ipynb`: Training with EfficientNetB0 + RandomOverSampler
+- `EB0_OVS_PREDICTIONS.ipynb`: Export to SavedModel for TF‑Serving and batch predictions utilities
+- `models/`: Place your exported SavedModel under `models/deepfake/<version>`
 
-### Option A — Docker (recommended)
-1) Place a TensorFlow SavedModel under `models/deepfake/1/` (already present here).
-2) Start the stack:
+---
 
+## 🚀 Quickstart
+1. Export your model to TensorFlow SavedModel format using the notebook (see below), then place it at:
+```
+models/deepfake/1/
+  assets/
+  variables/
+  saved_model.pb
+```
+2. Start services:
 ```bash
-docker compose up -d
+docker compose up --build
 ```
+3. Open API docs at `http://localhost:8000/docs` 🧪
 
-3) Open `http://localhost:8000/docs` for Swagger UI.
+---
 
-4) Predict with a sample video:
+## 🎥 Demo
+![Deepfake Detection Demo](assets/demo.gif)
 
+---
+
+## 🖼️ Screenshots
+<img src="assets/screenshot-swagger.png" width="800" alt="FastAPI Swagger UI" />
+<img src="assets/screenshot-result.png" width="800" alt="Prediction Result" />
+
+---
+
+## 📓 Model Training & Export
+- **Train**: `EfficientB0_OVERSAMPLING.ipynb`
+  - EfficientNetB0, mixed precision, oversampling via `RandomOverSampler`
+  - Saves weights to `Models/Eb0_OVS_best_model_weights.h5` and full model to `Models/Eb0_OVS_best_model.h5`
+- **Export for serving**: `EB0_OVS_PREDICTIONS.ipynb`
+  - Rebuild the architecture and load weights
+  - Export SavedModel, e.g.:
+```python
+import os
+os.makedirs("models/deepfake/1", exist_ok=True)
+model.save("models/deepfake/1", include_optimizer=False, save_format="tf")
+```
+Place that directory under the repo `models/` so `docker-compose.yml` mounts it into TF‑Serving.
+
+---
+
+## 🔌 API Reference
+- **Base URL**: `http://localhost:8000`
+- **Docs**: `http://localhost:8000/docs`
+- **Health**
+  - `GET /health`
+  - Response example:
+```json
+{"ok": true, "tfserving": {"model_version_status": "..."}}
+```
+- **Predict**
+  - `POST /predict`
+  - Form-data: `file=@/path/to/video.mp4`
+  - Query params: `fps` (optional, float)
+  - Headers: `Authorization: Bearer <JWT_SECRET>` if auth enabled
+Example request:
 ```bash
-curl -X POST "http://localhost:8000/predict" \
-  -F "file=@/path/to/video.mp4" \
-  -H "Authorization: Bearer change-me"
+curl -X POST "http://localhost:8000/predict?fps=2.0" \
+  -H "accept: application/json" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@./sample.mp4"
 ```
-
-PowerShell (Windows):
-
-```powershell
-curl -Method POST "http://localhost:8000/predict" `
-  -Headers @{ Authorization = "Bearer change-me" } `
-  -Form @{ file = Get-Item "/path/to/video.mp4" }
-```
-
-### Option B — Local dev (Poetry)
-```bash
-cd api
-poetry install
-poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-You still need a model server. Either run TF Serving via Docker:
-
-```bash
-docker run --rm -p 8501:8501 \
-  -e MODEL_NAME=deepfake \
-  -v ${PWD}/models/deepfake:/models/deepfake:ro \
-  tensorflow/serving:2.14.1
-```
-
-Or set `TF_SERVING_URL` to point to an existing instance.
-
-## API
-
-### Health
-```http
-GET /health
-```
-Returns TF Serving status and metadata.
-
-### Predict
-```http
-POST /predict
-Content-Type: multipart/form-data
-Form field: file=<video.mp4>
-Query (optional): fps=<float>
-```
-
 Response example:
-
 ```json
 {
-  "score": 0.71,
+  "score": 0.7421,
   "label": "fake",
   "frame_samples": [
-    { "t": 0.12, "score": 0.65 },
-    { "t": 0.62, "score": 0.74 }
+    {"t": 0.0, "score": 0.71},
+    {"t": 0.5, "score": 0.78}
   ],
   "version": "1",
-  "latency_ms": 324,
+  "latency_ms": 1234,
   "meta": {
     "src_fps": 29.97,
-    "total_frames": 1860,
+    "total_frames": 1450,
     "used_step": 15,
     "face_frames": 128,
-    "face_detect_rate": 0.92
+    "face_detect_rate": 0.9
   }
 }
 ```
 
-## Configuration
+---
 
-The service is fully configurable via environment variables (see `settings.py`).
-
-| Name | Default | Description |
-|---|---:|---|
-| `MODEL_NAME` | `deepfake` | TF Serving model name |
-| `MODEL_VERSION` | `1` | Exposed in responses; for your tracking |
-| `TF_SERVING_URL` | `http://tfserving:8501` | TF Serving base URL |
-| `DEFAULT_FPS` | `2.0` | Target FPS for frame sampling |
-| `MAX_FRAMES` | `256` | Max frames per request |
-| `THRESHOLD` | `0.5` | Score threshold: ≥ fake, < real |
-| `REQUEST_TIMEOUT` | `30.0` | Seconds for TF Serving HTTP calls |
-| `REQUIRE_AUTH` | `false` | Gate `/predict` behind a bearer token |
-| `JWT_SECRET` | `change-me` | Static token checked when auth is enabled |
-
-Create a `.env` at repo root to override:
-
-```env
-TF_SERVING_URL=http://localhost:8501
-THRESHOLD=0.6
-REQUIRE_AUTH=true
-JWT_SECRET=super-secret-token
+## ⚙️ Configuration
+All settings are centralized in `settings.py` and can be set via environment variables (see `docker-compose.yml`).
+- **Core model serving**
+  - `MODEL_NAME` (default `deepfake`)
+  - `MODEL_VERSION` (default `1`)
+  - `TF_SERVING_URL` (default `http://tfserving:8501`)
+- **Inference controls**
+  - `DEFAULT_FPS` (default `2.0`)
+  - `MAX_FRAMES` (default `256`)
+  - `THRESHOLD` (default `0.5`)
+  - `REQUEST_TIMEOUT` (default `30` seconds)
+- **Auth**
+  - `REQUIRE_AUTH` (default `false`)
+  - `JWT_SECRET` (shared static token for demo purposes)
+Create a `.env` at repo root if you prefer:
+```
+MODEL_NAME=deepfake
+MODEL_VERSION=1
+TF_SERVING_URL=http://tfserving:8501
+DEFAULT_FPS=2.0
+MAX_FRAMES=256
+THRESHOLD=0.5
+REQUEST_TIMEOUT=30
+REQUIRE_AUTH=false
+JWT_SECRET=change-me
 ```
 
-## Training Notebooks (high‑level)
+---
 
-- `EfficientB0_OVERSAMPLING.ipynb`: EfficientNet‑B0 classifier trained with class oversampling to handle dataset imbalance. Includes data preparation, augmentations, model definition, training loop, and checkpoints export to SavedModel.
-- `EB0_OVS_PREDICTIONS.ipynb`: Sanity‑checks model outputs on held‑out clips, shows per‑frame scores and aggregate video‑level decision. Useful for choosing a decision `THRESHOLD`.
-
-Tip: export the final model to `models/deepfake/<version>/` as a TensorFlow SavedModel for TF Serving.
-
-## Implementation Notes
-
-- **Face detection**: OpenCV Haar cascade; we pick the largest face and expand the bbox with a margin for robustness.
-- **Fallback**: if no faces are found, we sample uniformly spaced square crops to maintain coverage.
-- **Normalization**: 64×64 RGB, `float32`, scaled to `[0, 1]`.
-- **Aggregation**: mean of per‑frame scores; configurable `THRESHOLD` determines `real` vs `fake`.
-
-```mermaid
-sequenceDiagram
-  participant C as Client
-  participant A as FastAPI
-  participant V as OpenCV
-  participant S as TF Serving
-  C->>A: POST /predict (video)
-  A->>V: extract + preprocess frames
-  V-->>A: batch (N×64×64×3)
-  A->>S: predict
-  S-->>A: scores per frame
-  A-->>C: score, label, meta
+## 🛠️ Development
+- **Linting & type checking** (from repo root):
+```bash
+poetry run ruff check
+poetry run mypy api
+```
+- **Tests** (placeholder):
+```bash
+poetry run pytest -q
 ```
 
-## Development
+---
 
-- Code style: ruff + mypy + pytest configured in `api/pyproject.toml`
-- Run tests (if/when added): `poetry run pytest`
-- Lint: `poetry run ruff check .`  Type‑check: `poetry run mypy .`
+## 🔭 Roadmap
+- Nginx reverse proxy + TLS (Let’s Encrypt)
+- Background processing via Celery + Redis
+- Object storage via MinIO for uploads and artifacts
+- Observability: Prometheus + Grafana, ELK stack
+- GPU‑accelerated face detection (e.g., RetinaFace) and tracking
+- Model registry and automated rollouts
 
-## Deploying
+---
 
-- Update model by adding a new version directory, e.g., `models/deepfake/2/`.
-- Bump `MODEL_VERSION` env to reflect what you’re serving.
-- Recreate the `tfserving` container or restart the compose stack.
+## 📚 Datasets & Citations
+Replace this list with the exact datasets you used. Common options in deepfake research:
+- [Celeb-DF v2](https://arxiv.org/abs/1909.12962)
+- [FaceForensics++](https://arxiv.org/abs/1901.08971)
+- [DeepFake Detection Challenge (DFDC)](https://www.kaggle.com/c/deepfake-detection-challenge)
+- [Google/Jigsaw DeepFakeDetection (DFD)](https://ai.googleblog.com/2019/09/contributing-data-to-deepfake-detection.html)
+For each dataset, cite the paper and comply with the license/terms of use. Document your preprocessing steps, any filtering, and train/val/test splits for reproducibility.
 
-## Security
+---
 
-- For private deployments, set `REQUIRE_AUTH=true` and pass `Authorization: Bearer <JWT_SECRET>` with requests.
-- Consider placing the API behind a reverse proxy (see `nginx/`) with TLS.
+## 🛠️ Troubleshooting
+- "No frames extracted": video has no detectable faces; fallback square‑crop path is included but may still fail on corrupted media
+- TF‑Serving 404: verify your SavedModel path and `MODEL_NAME`
+- CORS issues: CORS is permissive by default in `main.py` (`allow_origins=["*"]`)
 
-## Troubleshooting
+---
 
-- 400 “Failed to open video”: ensure the upload is a valid video (MP4/MOV) and the request is `multipart/form-data`.
-- 5xx from TF Serving: verify the `models/deepfake/<ver>/` mount and `TF_SERVING_URL`.
-- No faces detected: try increasing `DEFAULT_FPS` or ensure faces are visible; fallback sampling will kick in.
+## ❓ FAQ
+**Q: Can I use my own model?**
+A: Yes! Replace the exported SavedModel in `models/deepfake/<version>` and update config if needed.
 
-## Credits
+**Q: How do I enable authentication?**
+A: Set `REQUIRE_AUTH=true` and provide a `JWT_SECRET` in your `.env`.
 
-Built by GAUTAM JHALARIA. Made with FastAPI, OpenCV, and TensorFlow Serving.
+**Q: Can I run this on GPU?**
+A: Yes, both training and serving support GPU acceleration if available.
+
+---
+
+## 🤝 Community & Support
+- Issues and feature requests: [GitHub Issues](https://github.com/GAUTAMJHALARIA/DeepFake-Detection/issues)
+- Email: jhalariagautam@gmail.com
+- Pull requests welcome!
+
+---
+
+## 📄 License
+License not specified. Add a `LICENSE` file to clarify permitted use.
+
+---
+
+## 👤 Maintainer
+- **GAUTAM JHALARIA** · jhalariagautam@gmail.com

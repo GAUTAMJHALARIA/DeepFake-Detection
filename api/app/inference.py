@@ -4,6 +4,8 @@ import json
 import tempfile
 import numpy as np
 import requests
+import tensorflow as tf
+from typing import Optional
 from settings import settings
 
 TF_SERVING_URL = settings.TF_SERVING_URL
@@ -106,27 +108,15 @@ def extract_frames_and_preprocess(
 
         cap.release()
 
-        if len(frames) == 0:
-            cap = cv2.VideoCapture(path)
-            total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-            if total > 0:
-                stride = max(total // min(16, total), 1)
-                i = 0
-                while i < total and len(frames) < max_frames:
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-                    ok, frame = cap.read()
-                    if not ok:
-                        break
-                    patch = cv2.cvtColor(_center_square_crop(frame), cv2.COLOR_BGR2RGB)
-                    patch = cv2.resize(patch, (64, 64), interpolation=cv2.INTER_AREA)
-                    arr = patch.astype(np.float32) / 255.0
-                    frames.append(arr)
-                    samples.append((float(i / (src_fps or 25.0)), len(samples)))
-                    i += stride
-                cap.release()
+        # Disable center-crop fallback to match notebook behavior (only face frames)
+        # If no face frames were collected, return with an explicit error
+        # so the caller can handle "no faces detected" cases.
+        # (Previously we added center-cropped frames here which changes the mean score.)
 
         if len(frames) == 0:
-            raise ValueError("No frames extracted (no faces and fallback failed)")
+            raise ValueError(
+                "No face frames extracted; no faces detected in the sampled frames"
+            )
 
         x = np.stack(frames, axis=0)
         meta = {
@@ -164,7 +154,57 @@ def aggregate(scores: np.ndarray, samples, threshold: float = THRESHOLD):
     video_score = float(np.mean(s))
     label = "fake" if video_score >= threshold else "real"
     frame_samples = [{"t": float(t), "score": float(s[i])} for (t, i) in samples]
+
+    # Debug information
+    print(
+        f"Prediction scores: min={np.min(s):.6f}, max={np.max(s):.6f}, mean={video_score:.6f}"
+    )
+    print(f"Threshold: {threshold}, Label: {label}")
+
     return {"score": video_score, "label": label, "frame_samples": frame_samples}
+
+
+def predict_with_model(
+    frames: np.ndarray, model_path: Optional[str] = None
+) -> np.ndarray:
+    """
+    Direct model inference without TF-Serving.
+
+    Args:
+        frames: Preprocessed frames array
+        model_path: Path to model (optional)
+
+    Returns:
+        Predictions array
+    """
+    try:
+        if model_path is None:
+            # Use the Keras model format that works with TF 2.20.0
+            # Get the absolute path to the model
+            import os
+
+            current_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            model_path = os.path.join(
+                current_dir,
+                f"models/deepfake/{settings.MODEL_VERSION}/keras_export.keras",
+            )
+
+        # Load model using Keras format (compatible with TF 2.20.0)
+        model = tf.keras.models.load_model(model_path, compile=False)
+
+        # Make prediction
+        predictions = model.predict(frames, verbose=0)
+
+        # Convert to numpy array
+        if hasattr(predictions, "numpy"):
+            return predictions.numpy()
+        else:
+            return np.array(predictions)
+
+    except Exception as e:
+        print(f"Direct model inference failed: {e}")
+        # Fallback to TF-Serving
+        return tfserving_predict(frames)
 
 
 def health_check():
