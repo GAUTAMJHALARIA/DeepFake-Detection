@@ -1,4 +1,17 @@
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
   tfserving:
     image: tensorflow/serving:2.14.1
     environment:
@@ -8,13 +21,19 @@ services:
       - ./models/deepfake:/models/deepfake:ro
     ports:
       - "8501:8501"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/v1/models/deepfake"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   api:
     build:
-      context: .          # use repo root as context
-      dockerfile: Dockerfile  # use the root Dockerfile you already have
+      context: .
+      dockerfile: Dockerfile
     environment:
       - TF_SERVING_URL=http://tfserving:8501
+      - REDIS_URL=redis://redis:6379
       - MODEL_NAME=deepfake
       - MODEL_VERSION=1
       - THRESHOLD=0.5
@@ -23,7 +42,26 @@ services:
       - REQUEST_TIMEOUT=30
       - REQUIRE_AUTH=false
       - JWT_SECRET=change-me
+      - EXTRACT_ALL_FRAMES=true
+      - ENABLE_GRADCAM=true
+      - MAX_RESOLUTION=1920x1080
+      - FRAME_CACHE_TTL=3600
+      - TEMP_STORAGE_PATH=/tmp/deepfake_analysis
+      - CLEANUP_AFTER_ANALYSIS=true
     depends_on:
-      - tfserving
+      redis:
+        condition: service_healthy
+      tfserving:
+        condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - /tmp/deepfake_analysis:/tmp/deepfake_analysis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  redis_data:

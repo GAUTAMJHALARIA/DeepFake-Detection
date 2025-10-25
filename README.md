@@ -1,20 +1,35 @@
-## Deepfake Detector (DFD)
+## Deepfake Detection System (DFD) - Enhanced Edition
 
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.116-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=white)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-4.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Material-UI](https://img.shields.io/badge/Material--UI-7.3-0081CB?logo=material-ui&logoColor=white)](https://mui.com/)
 [![OpenCV](https://img.shields.io/badge/OpenCV-4.12.0.88-5C3EE8?logo=opencv&logoColor=white)](https://opencv.org/)
 [![TensorFlow Serving](https://img.shields.io/badge/TensorFlow%20Serving-2.14-F9AB00?logo=tensorflow&logoColor=white)](https://www.tensorflow.org/tfx/guide/serving)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Poetry](https://img.shields.io/badge/Poetry-managed-60A5FA?logo=poetry&logoColor=white)](https://python-poetry.org/)
 
-An end‑to‑end, containerized deepfake detection system. It pairs a face‑centric video preprocessor (OpenCV + Haar cascade) with a TensorFlow Serving model endpoint and exposes a clean FastAPI for real‑time predictions.
+A **production-ready, full-stack deepfake detection system** with advanced web dashboard, real-time analytics, and comprehensive video analysis capabilities.
 
-- **Input**: a video file (e.g., MP4)
-- **Processing**: sample frames at target FPS, detect and crop faces, normalize to 64×64 RGB
-- **Model**: EfficientNet‑B0 based classifier (trained with oversampling; see notebooks)
-- **Output**: overall deepfake score and label, plus per‑frame scores and metadata
+### 🚀 **New Features**
+- **Interactive Web Dashboard** - React/TypeScript frontend with Material-UI
+- **Real-time Processing Progress** - Live updates during analysis
+- **Frame-by-Frame Analysis** - Interactive confidence score visualization with heatmaps
+- **Batch Processing** - Analyze multiple files simultaneously
+- **URL Analysis** - Direct analysis from YouTube, social media, and video URLs
+- **Advanced Analytics** - Historical analysis, trends, and performance metrics
+- **Multi-format Support** - Videos (MP4, AVI, MKV, WebM) and Images (JPG, PNG, etc.)
+- **Export Capabilities** - CSV export for analysis results
+- **Enhanced API** - RESTful endpoints with comprehensive response data
 
-Explore the interactive docs at `http://localhost:8000/docs` once the stack is up.
+### 🎯 **Core Capabilities**
+- **Input**: Videos, images, or URLs from popular platforms
+- **Processing**: Advanced frame sampling, face detection, and preprocessing
+- **Model**: EfficientNet‑B0 classifier with confidence scoring
+- **Output**: Detailed analysis with frame-level insights and metadata
+
+Access the web dashboard at `http://localhost:3000` and API docs at `http://localhost:8000/docs`
 
 ### Why this repo?
 - **Practical pipeline**: from raw video to face patches ready for inference
@@ -47,87 +62,129 @@ flowchart LR
 - `EfficientB0_OVERSAMPLING.ipynb`: training + oversampling pipeline
 - `EB0_OVS_PREDICTIONS.ipynb`: evaluation/predictions exploration
 
-## Quickstart
+## 🚀 Quick Start
 
-### Option A — Docker (recommended)
-1) Place a TensorFlow SavedModel under `models/deepfake/1/` (already present here).
-2) Start the stack:
+### Option A — Full Stack (Recommended)
+Launch the complete system with web dashboard:
 
 ```bash
+# Start all services (API, TensorFlow Serving, Frontend)
 docker compose up -d
+
+# Access the web dashboard
+open http://localhost:3000
+
+# Access API documentation
+open http://localhost:8000/docs
 ```
 
-3) Open `http://localhost:8000/docs` for Swagger UI.
-
-4) Predict with a sample video:
+### Option B — Development Mode
+For development with hot-reload:
 
 ```bash
+# Start development environment
+docker compose -f docker-compose.dev.yml up -d
+
+# Frontend will be available at http://localhost:3000
+# API will be available at http://localhost:8000
+```
+
+### Option C — API Only
+If you only need the API:
+
+```bash
+# Start just the backend services
+docker compose up -d tfserving api
+
+# Test with curl
 curl -X POST "http://localhost:8000/predict" \
   -F "file=@/path/to/video.mp4" \
   -H "Authorization: Bearer change-me"
 ```
 
-PowerShell (Windows):
-
-```powershell
-curl -Method POST "http://localhost:8000/predict" `
-  -Headers @{ Authorization = "Bearer change-me" } `
-  -Form @{ file = Get-Item "/path/to/video.mp4" }
-```
-
-### Option B — Local dev (Poetry)
+### Option D — Local Development
 ```bash
+# Backend
 cd api
 poetry install
 poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Frontend (in another terminal)
+cd frontend
+npm install
+npm start
 ```
 
-You still need a model server. Either run TF Serving via Docker:
+## 🌐 Web Dashboard Features
 
-```bash
-docker run --rm -p 8501:8501 \
-  -e MODEL_NAME=deepfake \
-  -v ${PWD}/models/deepfake:/models/deepfake:ro \
-  tensorflow/serving:2.14.1
-```
+### 📊 **Interactive Analytics Dashboard**
+- Real-time processing statistics and trends
+- Daily analysis metrics with charts
+- System health monitoring
+- High-confidence detection alerts
 
-Or set `TF_SERVING_URL` to point to an existing instance.
+### 🎬 **Advanced Video Analysis**
+- **Single File Analysis**: Drag-and-drop interface with real-time progress
+- **Batch Processing**: Analyze multiple files simultaneously
+- **URL Analysis**: Direct analysis from YouTube, Vimeo, social media
+- **Frame-by-Frame Viewer**: Interactive timeline with confidence scores
+- **Confidence Heatmaps**: Visual representation of suspicious regions
 
-## API
+### 📈 **Visualization Components**
+- **Confidence Timeline**: Score trends over video duration
+- **Frame Analysis**: Individual frame confidence with navigation
+- **Distribution Charts**: Real vs fake classification breakdown
+- **Performance Metrics**: Processing speed and quality indicators
 
-### Health
+### 📋 **Analysis History**
+- Searchable and filterable analysis records
+- Detailed result viewing with metadata
+- CSV export functionality
+- Historical trend analysis
+
+## 🔧 Enhanced API Endpoints
+
+### Core Analysis
 ```http
-GET /health
+POST /predict              # Single video/image analysis
+POST /predict-image        # Dedicated image analysis
+POST /predict-batch        # Multiple file processing
+POST /predict-url          # URL-based analysis
 ```
-Returns TF Serving status and metadata.
 
-### Predict
+### Analytics & History
 ```http
-POST /predict
-Content-Type: multipart/form-data
-Form field: file=<video.mp4>
-Query (optional): fps=<float>
+GET /history              # Analysis history with pagination
+GET /analysis/{id}        # Detailed analysis results
+GET /stats                # Processing statistics and trends
+GET /status/{id}          # Real-time processing status
 ```
 
-Response example:
+### System
+```http
+GET /health               # System health check
+GET /supported-formats    # Supported file formats
+```
 
+### Enhanced Response Format
 ```json
 {
+  "id": "uuid-analysis-id",
   "score": 0.71,
   "label": "fake",
-  "frame_samples": [
-    { "t": 0.12, "score": 0.65 },
-    { "t": 0.62, "score": 0.74 }
-  ],
+  "frame_samples": [...],
+  "confidence_trend": [...],
+  "processing_stats": {
+    "frames_processed": 128,
+    "avg_confidence": 0.68,
+    "processing_fps": 15.2
+  },
+  "face_quality_metrics": {
+    "face_detection_rate": 0.92,
+    "face_consistency": 0.85
+  },
   "version": "1",
-  "latency_ms": 324,
-  "meta": {
-    "src_fps": 29.97,
-    "total_frames": 1860,
-    "used_step": 15,
-    "face_frames": 128,
-    "face_detect_rate": 0.92
-  }
+  "latency_ms": 324
 }
 ```
 

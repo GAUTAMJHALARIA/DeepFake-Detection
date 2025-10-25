@@ -4,6 +4,8 @@ import json
 import tempfile
 import numpy as np
 import requests
+import tensorflow as tf
+from typing import Optional
 from settings import settings
 
 TF_SERVING_URL = settings.TF_SERVING_URL
@@ -106,27 +108,15 @@ def extract_frames_and_preprocess(
 
         cap.release()
 
-        if len(frames) == 0:
-            cap = cv2.VideoCapture(path)
-            total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-            if total > 0:
-                stride = max(total // min(16, total), 1)
-                i = 0
-                while i < total and len(frames) < max_frames:
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-                    ok, frame = cap.read()
-                    if not ok:
-                        break
-                    patch = cv2.cvtColor(_center_square_crop(frame), cv2.COLOR_BGR2RGB)
-                    patch = cv2.resize(patch, (64, 64), interpolation=cv2.INTER_AREA)
-                    arr = patch.astype(np.float32) / 255.0
-                    frames.append(arr)
-                    samples.append((float(i / (src_fps or 25.0)), len(samples)))
-                    i += stride
-                cap.release()
+        # Disable center-crop fallback to match notebook behavior (only face frames)
+        # If no face frames were collected, return with an explicit error
+        # so the caller can handle "no faces detected" cases.
+        # (Previously we added center-cropped frames here which changes the mean score.)
 
         if len(frames) == 0:
-            raise ValueError("No frames extracted (no faces and fallback failed)")
+            raise ValueError(
+                "No face frames extracted; no faces detected in the sampled frames"
+            )
 
         x = np.stack(frames, axis=0)
         meta = {
@@ -164,7 +154,141 @@ def aggregate(scores: np.ndarray, samples, threshold: float = THRESHOLD):
     video_score = float(np.mean(s))
     label = "fake" if video_score >= threshold else "real"
     frame_samples = [{"t": float(t), "score": float(s[i])} for (t, i) in samples]
+
+    # Debug information
+    print(
+        f"Prediction scores: min={np.min(s):.6f}, max={np.max(s):.6f}, mean={video_score:.6f}"
+    )
+    print(f"Threshold: {threshold}, Label: {label}")
+
     return {"score": video_score, "label": label, "frame_samples": frame_samples}
+
+
+def predict_with_model(
+    frames: np.ndarray, model_path: Optional[str] = None
+) -> np.ndarray:
+    """
+    Direct model inference without TF-Serving.
+
+    Args:
+        frames: Preprocessed frames array
+        model_path: Path to model (optional)
+
+    Returns:
+        Predictions array
+    """
+    try:
+        if model_path is None:
+            # Use the Keras model format that works with TF 2.20.0
+            # Get the absolute path to the model
+            import os
+
+            current_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            model_path = os.path.join(
+                current_dir,
+                f"models/deepfake/{settings.MODEL_VERSION}/keras_export.keras",
+            )
+
+        # Load model using Keras format (compatible with TF 2.20.0)
+        model = tf.keras.models.load_model(model_path, compile=False)
+
+        # Make prediction
+        predictions = model.predict(frames, verbose=0)
+
+        # Convert to numpy array
+        if hasattr(predictions, "numpy"):
+            return predictions.numpy()
+        else:
+            return np.array(predictions)
+
+    except Exception as e:
+        print(f"Direct model inference failed: {e}")
+        # Fallback to TF-Serving
+        return tfserving_predict(frames)
+
+
+def process_image(image_bytes: bytes, analysis_id: str) -> dict:
+    """
+    Process a single image for deepfake detection.
+
+    Args:
+        image_bytes: Raw image bytes
+        analysis_id: Unique analysis identifier
+
+    Returns:
+        Dictionary with prediction results
+    """
+    try:
+        # Convert bytes to numpy array
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if image is None:
+            raise ValueError("Failed to decode image")
+
+        # Convert BGR to RGB
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # Detect faces
+        cascade = _haar_cascade()
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        faces = cascade.detectMultiScale(
+            gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30)
+        )
+
+        if faces is None or len(faces) == 0:
+            # No face detected, use center crop
+            patch = _center_square_crop(image_rgb)
+        else:
+            # Use largest face
+            x, y, w, h = _largest_face(faces)
+            h_img, w_img = image.shape[:2]
+            x, y, w, h = _expand_bbox(x, y, w, h, w_img, h_img, margin=0.20)
+            patch = image_rgb[y : y + h, x : x + w]
+
+        # Resize to model input size
+        patch = cv2.resize(patch, (64, 64), interpolation=cv2.INTER_AREA)
+        patch = patch.astype(np.float32) / 255.0
+
+        # Add batch dimension
+        batch = np.expand_dims(patch, axis=0)
+
+        # Make prediction
+        preds = tfserving_predict(batch)
+        score = float(preds[0][0])
+        label = "fake" if score >= THRESHOLD else "real"
+
+        return {
+            "id": analysis_id,
+            "score": score,
+            "label": label,
+            "frame_samples": [{"t": 0.0, "score": score}],
+            "version": settings.MODEL_VERSION,
+            "meta": {
+                "face_detected": faces is not None and len(faces) > 0,
+                "total_faces": len(faces) if faces is not None else 0,
+                "image_shape": image.shape,
+            },
+        }
+
+    except Exception as e:
+        raise ValueError(f"Image processing failed: {str(e)}")
+
+
+def get_supported_formats() -> dict:
+    """
+    Get list of supported video and image formats.
+
+    Returns:
+        Dictionary with supported formats
+    """
+    return {
+        "video_formats": ["mp4", "avi", "mov", "mkv", "wmv", "flv", "webm", "m4v"],
+        "image_formats": ["jpg", "jpeg", "png", "bmp", "tiff", "webp"],
+        "max_file_size_mb": 100,
+        "max_resolution": "1920x1080",
+        "min_resolution": "64x64",
+    }
 
 
 def health_check():
