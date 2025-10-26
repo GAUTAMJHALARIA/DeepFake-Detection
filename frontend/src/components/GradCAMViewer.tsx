@@ -50,7 +50,7 @@ const GradCAMViewer: React.FC<GradCAMViewerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showOverlay, setShowOverlay] = useState(true);
   const [opacity, setOpacity] = useState(0.6);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(2);
   const [frameData, setFrameData] = useState<any>(null);
 
   // Load Grad-CAM data for current frame
@@ -216,11 +216,11 @@ const GradCAMViewer: React.FC<GradCAMViewerProps> = ({
                     value={zoom}
                     onChange={(_, value) => setZoom(value as number)}
                     min={0.5}
-                    max={3}
+                    max={4}
                     step={0.25}
                     sx={{ flexGrow: 1 }}
                   />
-                  <IconButton size="small" onClick={() => setZoom(Math.min(3, zoom + 0.25))}>
+                  <IconButton size="small" onClick={() => setZoom(Math.min(4, zoom + 0.25))}>
                     <ZoomIn />
                   </IconButton>
                 </Box>
@@ -272,12 +272,13 @@ const GradCAMViewer: React.FC<GradCAMViewerProps> = ({
                 {/* Original Frame (if available) */}
                 {frameData?.thumbnail_base64 && (
                   <img
-                    src={`data:image/jpeg;base64,${frameData.thumbnail_base64}`}
+                    src={`data:image/png;base64,${frameData.thumbnail_base64}`}
                     alt="Original frame"
                     style={{
                       display: 'block',
-                      maxWidth: '100%',
+                      width: '800px',
                       height: 'auto',
+                      minWidth: '600px',
                       transform: `scale(${zoom})`,
                       transformOrigin: 'center',
                     }}

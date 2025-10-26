@@ -7,9 +7,11 @@ import requests
 from typing import Tuple, List, Dict, Any, Optional
 import logging
 import yt_dlp
+import hashlib
 
 from settings import settings
 from .cache import cache
+from .video_converter import video_converter
 
 logger = logging.getLogger(__name__)
 
@@ -74,22 +76,63 @@ def _resize_to_max_resolution(frame, max_resolution="1920x1080"):
     return cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
 
-def _create_thumbnail(frame, size=(160, 90)):
+def _create_thumbnail(frame, size=(1280, 720)):
     """Create thumbnail for timeline scrubbing"""
     return cv2.resize(frame, size, interpolation=cv2.INTER_AREA)
+
+
+def ensure_browser_compatible_video(video_path: str) -> Tuple[str, bool, str]:
+    """
+    Ensure video is browser-compatible, convert if necessary
+    Returns: (final_video_path, was_converted, message)
+    """
+    try:
+        # Check if video is already browser-compatible
+        is_compatible, codec_info = video_converter.check_codec_support(video_path)
+
+        if is_compatible:
+            logger.info(f"Video is already browser-compatible: {codec_info}")
+            return video_path, False, f"Video is compatible ({codec_info})"
+
+        # Check if FFmpeg is available for conversion
+        if codec_info == "FFmpeg not available":
+            logger.warning("FFmpeg not available, using original video")
+            return video_path, False, "FFmpeg not available - using original video"
+
+        logger.info(f"Video needs conversion: {codec_info}")
+
+        # Convert to browser-compatible format
+        success, message, converted_path = (
+            video_converter.convert_to_browser_compatible(video_path)
+        )
+
+        if success and converted_path:
+            logger.info(f"Successfully converted video: {converted_path}")
+            return (
+                converted_path,
+                True,
+                f"Converted to H.264 Baseline ({codec_info} → H.264)",
+            )
+        else:
+            logger.error(f"Conversion failed: {message}")
+            return video_path, False, f"Conversion failed: {message}"
+
+    except Exception as e:
+        logger.error(f"Error in video compatibility check: {e}")
+        return video_path, False, f"Error checking compatibility: {str(e)}"
 
 
 def _get_confidence_color(confidence: float) -> Tuple[int, int, int]:
     """Get RGB color based on confidence score (Red-Yellow-Green)"""
     if confidence >= 0.7:  # High fake confidence - Red
         return (255, 0, 0)
-    elif confidence >= 0.3:  # Medium confidence - Yellow
+    elif confidence >= 0.5:  # Medium confidence - Yellow
         # Interpolate between red and yellow
-        ratio = (confidence - 0.3) / 0.4
+        ratio = (confidence - 0.5) / 0.2
         return (255, int(255 * (1 - ratio)), 0)
     else:  # Low fake confidence - Green
         # Interpolate between yellow and green
-        ratio = confidence / 0.3
+        ratio = confidence / 0.5
         return (int(255 * ratio), 255, 0)
 
 
@@ -114,20 +157,51 @@ def _convert_numpy_types(obj):
 def download_video_from_url(url: str) -> bytes:
     """Download video from URL using yt-dlp"""
     try:
-        ydl_opts = {
-            "format": "best[height<=1080]",  # Limit to 1080p
-            "quiet": True,
-            "no_warnings": True,
-        }
+        import tempfile
+        import os
+        import glob
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            video_url = info["url"]
+        # Create a temporary directory for the download
+        temp_dir = tempfile.mkdtemp()
+        temp_pattern = os.path.join(temp_dir, "video.%(ext)s")
 
-            response = requests.get(video_url, timeout=60)
-            response.raise_for_status()
+        try:
+            ydl_opts = {
+                "format": "best[height<=1080]",  # Limit to 1080p
+                "quiet": True,
+                "no_warnings": True,
+                "outtmpl": temp_pattern,
+                "merge_output_format": "mp4",
+            }
 
-            return response.content
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+
+            # Find the downloaded file (might be .mp4, .webm, etc.)
+            downloaded_files = glob.glob(os.path.join(temp_dir, "video.*"))
+            if not downloaded_files:
+                raise ValueError("No video file downloaded")
+
+            downloaded_file = downloaded_files[0]
+
+            # Read the downloaded file
+            with open(downloaded_file, "rb") as f:
+                video_content = f.read()
+
+            # Clean up temp directory
+            import shutil
+
+            shutil.rmtree(temp_dir)
+
+            return video_content
+
+        except Exception as e:
+            # Clean up on error
+            import shutil
+
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+            raise e
 
     except Exception as e:
         raise ValueError(f"Failed to download video from URL: {str(e)}")
@@ -139,6 +213,10 @@ def extract_all_frames_enhanced(
     """
     Enhanced frame extraction that caches all frames and metadata
     """
+    # Calculate video hash for debugging
+    video_hash = hashlib.md5(video_bytes).hexdigest()[:8]
+    logger.info(f"Processing video with hash: {video_hash}")
+
     fd, path = tempfile.mkstemp(suffix=".mp4")
     os.close(fd)
 
@@ -146,7 +224,13 @@ def extract_all_frames_enhanced(
         with open(path, "wb") as f:
             f.write(video_bytes)
 
-        cap = cv2.VideoCapture(path)
+        # Ensure video is browser-compatible
+        final_video_path, was_converted, conversion_message = (
+            ensure_browser_compatible_video(path)
+        )
+
+        # Use the converted video for processing
+        cap = cv2.VideoCapture(final_video_path)
         if not cap.isOpened():
             raise ValueError("Failed to open video")
 
@@ -156,14 +240,16 @@ def extract_all_frames_enhanced(
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        # Calculate frame step for target FPS (memory optimized)
+        # Calculate frame step for target FPS (deterministic sampling)
         if settings.EXTRACT_ALL_FRAMES and total_frames <= settings.MAX_CACHED_FRAMES:
             step = 1  # Extract all frames only for short videos
+            target_frame_count = total_frames
         else:
-            step = max(int(round(src_fps / max(target_fps, 0.1))), 1)
-            # Ensure we don't exceed max cached frames
-            if total_frames // step > settings.MAX_CACHED_FRAMES:
-                step = max(total_frames // settings.MAX_CACHED_FRAMES, 1)
+            # Use deterministic frame sampling - ALWAYS consistent for same video
+            target_frame_count = min(
+                settings.MAX_CACHED_FRAMES, int(target_fps * duration)
+            )
+            step = max(total_frames // target_frame_count, 1)
 
         cascade = _haar_cascade()
         frames = []
@@ -174,6 +260,10 @@ def extract_all_frames_enhanced(
         processed_frames = 0
 
         logger.info(f"Processing video: {total_frames} frames at {src_fps} FPS")
+        logger.info(
+            f"Deterministic frame sampling: step={step}, target_frames={target_frame_count if 'target_frame_count' in locals() else 'all'}"
+        )
+        logger.info(f"Video dimensions: {width}x{height}, duration: {duration:.2f}s")
 
         while True:
             ret = cap.grab()
@@ -191,10 +281,14 @@ def extract_all_frames_enhanced(
                 timestamp = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
                 h, w = frame.shape[:2]
 
-                # Face detection
+                # Face detection (deterministic parameters)
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 faces = cascade.detectMultiScale(
-                    gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30)
+                    gray,
+                    scaleFactor=1.05,  # More conservative for consistency
+                    minNeighbors=6,  # Higher threshold for consistency
+                    minSize=(40, 40),  # Larger minimum size
+                    flags=cv2.CASCADE_SCALE_IMAGE,
                 )
 
                 face_detected = faces is not None and len(faces) > 0
@@ -205,6 +299,11 @@ def extract_all_frames_enhanced(
                     x, y, fw, fh = _largest_face(faces)
                     face_bbox = [x, y, fw, fh]
                     x, y, fw, fh = _expand_bbox(x, y, fw, fh, w, h, margin=0.20)
+                    # Ensure bbox is within frame bounds (deterministic cropping)
+                    x = max(0, min(x, w - fw))
+                    y = max(0, min(y, h - fh))
+                    fw = min(fw, w - x)
+                    fh = min(fh, h - y)
                     face = frame[y : y + fh, x : x + fw]
 
                     patch = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
@@ -266,6 +365,12 @@ def extract_all_frames_enhanced(
             "face_detect_rate": float(face_frames) / float(processed_frames)
             if processed_frames > 0
             else 0.0,
+            "conversion_info": {
+                "was_converted": was_converted,
+                "conversion_message": conversion_message,
+                "original_path": path,
+                "final_path": final_video_path,
+            },
         }
 
         logger.info(f"Extraction complete: {processed_frames} frames processed")
@@ -273,8 +378,11 @@ def extract_all_frames_enhanced(
         return frames, frame_metadata, video_info
 
     finally:
+        # Don't remove the video file if it was converted (needed for preview)
+        # Only remove if it wasn't converted and we're not keeping original
         try:
-            os.remove(path)
+            if not was_converted:
+                os.remove(path)
         except Exception:
             pass
 

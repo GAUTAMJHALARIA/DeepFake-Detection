@@ -9,11 +9,12 @@ import {
     Alert,
     Card,
     CardContent,
-    Tabs,
-    Tab,
     Grid,
     Chip,
     Divider,
+    TextField,
+    Tabs,
+    Tab,
 } from '@mui/material';
 import {
     CloudUpload,
@@ -21,13 +22,17 @@ import {
     Analytics,
     Timeline,
     Visibility,
+    Link as LinkIcon,
+    InsertDriveFile,
 } from '@mui/icons-material';
 import axios from 'axios';
 
 import EnhancedVideoPlayer from './EnhancedVideoPlayer';
 import ConfidenceHeatMap from './ConfidenceHeatMap';
 import AnalyticsDashboard from './AnalyticsDashboard';
+import EnhancedAnalyticsDashboard from './EnhancedAnalyticsDashboard';
 import GradCAMViewer from './GradCAMViewer';
+import ErrorBoundary from './ErrorBoundary';
 
 interface EnhancedAnalysisResult {
     id: string;
@@ -69,41 +74,50 @@ interface EnhancedAnalysisResult {
     version: string;
 }
 
-interface TabPanelProps {
-    children?: React.ReactNode;
-    index: number;
-    value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-    const { children, value, index, ...other } = props;
-    return (
-        <div
-            role="tabpanel"
-            hidden={value !== index}
-            id={`tabpanel-${index}`}
-            {...other}
-        >
-            {value === index && <Box>{children}</Box>}
-        </div>
-    );
-}
-
 const EnhancedVideoAnalysis: React.FC = () => {
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [result, setResult] = useState<EnhancedAnalysisResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-    const [tabValue, setTabValue] = useState(0);
     const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
     const [processingStep, setProcessingStep] = useState('');
+    const [urlInput, setUrlInput] = useState('');
+    const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
+
+    const formatErrorMessage = (error: any): string => {
+        if (typeof error === 'string') {
+            return error;
+        }
+        if (error?.response?.data?.detail) {
+            const detail = error.response.data.detail;
+            if (typeof detail === 'string') {
+                return detail;
+            }
+            if (Array.isArray(detail)) {
+                return detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ');
+            }
+        }
+        return 'Analysis failed. Please try again.';
+    };
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         const file = acceptedFiles[0];
         if (!file) return;
 
-        setUploadedFile(file);
+        console.log('File received:', file.name, file.size, file.type);
+
+        // Read the file as ArrayBuffer to create a proper copy
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const fileCopy = new File([arrayBuffer], file.name, { type: file.type });
+            console.log('File copy created:', fileCopy.name, fileCopy.size, fileCopy.type);
+            setUploadedFile(fileCopy);
+        } catch (error) {
+            console.error('Failed to create file copy:', error);
+            setUploadedFile(file); // Fallback to original file
+        }
+
         setUploading(true);
         setProgress(0);
         setError(null);
@@ -112,9 +126,9 @@ const EnhancedVideoAnalysis: React.FC = () => {
 
         try {
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', file); // Use original file for upload
 
-            const response = await axios.post('http://localhost:8000/predict-enhanced', formData, {
+            const response = await axios.post('http://localhost:8000/predict', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                     'Authorization': 'Bearer change-me',
@@ -140,12 +154,46 @@ const EnhancedVideoAnalysis: React.FC = () => {
             setResult(response.data);
 
         } catch (err: any) {
-            setError(err.response?.data?.detail || 'Enhanced analysis failed');
+            setError(formatErrorMessage(err));
             setProcessingStep('Analysis failed');
         } finally {
             setUploading(false);
         }
     }, []);
+
+    const handleUrlUpload = useCallback(async () => {
+        if (!urlInput.trim()) {
+            setError('Please enter a valid URL');
+            return;
+        }
+
+        setUploading(true);
+        setProgress(0);
+        setError(null);
+        setResult(null);
+        setUploadedFile(null); // No file for URL upload
+
+        try {
+            setProcessingStep('Downloading video from URL...');
+            setProgress(20);
+
+            const response = await axios.post(
+                'http://localhost:8000/predict-url',
+                { url: urlInput.trim() },
+                { headers: { 'Content-Type': 'application/json' } }
+            );
+
+            setProgress(100);
+            setProcessingStep('Analysis complete!');
+            setResult(response.data);
+
+        } catch (err: any) {
+            setError(formatErrorMessage(err));
+            setProcessingStep('Analysis failed');
+        } finally {
+            setUploading(false);
+        }
+    }, [urlInput]);
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
@@ -155,10 +203,6 @@ const EnhancedVideoAnalysis: React.FC = () => {
         multiple: false,
         disabled: uploading,
     });
-
-    const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-        setTabValue(newValue);
-    };
 
     const handleFrameChange = (frameIndex: number) => {
         setCurrentFrameIndex(frameIndex);
@@ -181,44 +225,94 @@ const EnhancedVideoAnalysis: React.FC = () => {
     return (
         <Box>
             <Typography variant="h4" gutterBottom>
-                Enhanced Video Analysis
+                Deepfake Detection Analysis
             </Typography>
             <Typography variant="body1" color="textSecondary" paragraph>
-                Advanced deepfake detection with frame-by-frame analysis, confidence visualization, and explainable AI features.
+                Advanced AI-powered deepfake detection with frame-by-frame analysis, confidence visualization, and explainable AI features.
             </Typography>
 
             {!result && (
-                <Paper
-                    {...getRootProps()}
-                    sx={{
-                        p: 6,
-                        textAlign: 'center',
-                        cursor: uploading ? 'not-allowed' : 'pointer',
-                        border: '2px dashed',
-                        borderColor: isDragActive ? 'primary.main' : 'grey.500',
-                        backgroundColor: isDragActive ? 'action.hover' : 'background.paper',
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                            borderColor: 'primary.main',
-                            backgroundColor: 'action.hover',
-                        },
-                        mb: 3,
-                    }}
-                >
-                    <input {...getInputProps()} />
-                    <CloudUpload sx={{ fontSize: 80, color: 'primary.main', mb: 2 }} />
-                    <Typography variant="h5" gutterBottom>
-                        {isDragActive
-                            ? 'Drop your video here'
-                            : 'Drag & drop a video, or click to select'}
-                    </Typography>
-                    <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
-                        Supported formats: MP4, AVI, MOV, MKV, WebM (up to 1080p)
-                    </Typography>
-                    <Button variant="contained" size="large" disabled={uploading}>
-                        Select Video File
-                    </Button>
-                </Paper>
+                <Box>
+                    {/* Upload Mode Tabs */}
+                    <Paper sx={{ mb: 2 }}>
+                        <Tabs
+                            value={uploadMode}
+                            onChange={(_, newValue) => setUploadMode(newValue)}
+                            centered
+                        >
+                            <Tab
+                                icon={<InsertDriveFile />}
+                                label="Upload File"
+                                value="file"
+                                disabled={uploading}
+                            />
+                            <Tab
+                                icon={<LinkIcon />}
+                                label="From URL"
+                                value="url"
+                                disabled={uploading}
+                            />
+                        </Tabs>
+                    </Paper>
+
+                    {/* File Upload Mode */}
+                    {uploadMode === 'file' && (
+                        <Paper
+                            {...getRootProps()}
+                            sx={{
+                                p: 6,
+                                textAlign: 'center',
+                                cursor: uploading ? 'not-allowed' : 'pointer',
+                                border: '2px dashed',
+                                borderColor: isDragActive ? 'primary.main' : 'grey.500',
+                                backgroundColor: isDragActive ? 'action.hover' : 'background.paper',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    borderColor: 'primary.main',
+                                },
+                            }}
+                        >
+                            <input {...getInputProps()} />
+                            <CloudUpload sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
+                            <Typography variant="h6" gutterBottom>
+                                {isDragActive ? 'Drop your video here' : 'Drag & drop or click to upload a video'}
+                            </Typography>
+                            <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
+                                Supported formats: MP4, AVI, MOV, MKV, WebM (up to 1080p)
+                            </Typography>
+                            <Button variant="contained" size="large" disabled={uploading}>
+                                Select Video File
+                            </Button>
+                        </Paper>
+                    )}
+
+                    {/* URL Upload Mode */}
+                    {uploadMode === 'url' && (
+                        <Paper sx={{ p: 4 }}>
+                            <Box sx={{ display: 'flex', gap: 2 }}>
+                                <TextField
+                                    fullWidth
+                                    label="Enter Video URL"
+                                    placeholder="https://www.youtube.com/watch?v=..."
+                                    value={urlInput}
+                                    onChange={(e) => setUrlInput(e.target.value)}
+                                    disabled={uploading}
+                                    helperText="Supports YouTube, Twitter, Instagram, TikTok, Vimeo, and more"
+                                />
+                                <Button
+                                    variant="contained"
+                                    size="large"
+                                    onClick={handleUrlUpload}
+                                    disabled={uploading || !urlInput.trim()}
+                                    startIcon={<LinkIcon />}
+                                    sx={{ minWidth: 150 }}
+                                >
+                                    Analyze
+                                </Button>
+                            </Box>
+                        </Paper>
+                    )}
+                </Box>
             )}
 
             {uploading && (
@@ -244,7 +338,7 @@ const EnhancedVideoAnalysis: React.FC = () => {
                 </Alert>
             )}
 
-            {result && uploadedFile && (
+            {result && (
                 <Box>
                     {/* Overall Results Summary */}
                     <Card sx={{ mb: 3 }}>
@@ -319,50 +413,43 @@ const EnhancedVideoAnalysis: React.FC = () => {
                         </CardContent>
                     </Card>
 
-                    {/* Tabbed Interface */}
-                    <Paper sx={{ mb: 3 }}>
-                        <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
-                            <Tab icon={<VideoFile />} label="Video Player" />
-                            <Tab icon={<Timeline />} label="Heat Map" />
-                            <Tab icon={<Analytics />} label="Analytics" />
-                            <Tab icon={<Visibility />} label="Explainability" />
-                        </Tabs>
-                    </Paper>
-
-                    {/* Tab Panels */}
-                    <TabPanel value={tabValue} index={0}>
+                    {/* Video Player */}
+                    <ErrorBoundary>
                         <EnhancedVideoPlayer
                             videoFile={uploadedFile}
                             analysisData={result}
                             onFrameChange={handleFrameChange}
                         />
-                    </TabPanel>
+                    </ErrorBoundary>
 
-                    <TabPanel value={tabValue} index={1}>
-                        <ConfidenceHeatMap
-                            analysisData={result}
-                            currentFrameIndex={currentFrameIndex}
-                            onFrameSelect={handleFrameChange}
-                        />
-                    </TabPanel>
-
-                    <TabPanel value={tabValue} index={2}>
-                        <AnalyticsDashboard
-                            statistics={result.statistics}
-                            videoInfo={result.video_info}
-                            processingInfo={result.processing_info}
-                            latencyMs={result.latency_ms}
-                        />
-                    </TabPanel>
-
-                    <TabPanel value={tabValue} index={3}>
-                        <GradCAMViewer
-                            analysisId={result.id}
-                            currentFrameIndex={currentFrameIndex}
-                            totalFrames={result.frames.length}
-                            onFrameChange={handleFrameChange}
-                        />
-                    </TabPanel>
+                    {/* Additional Analysis Components */}
+                    <Box sx={{ mt: 3 }}>
+                        <Grid container spacing={3}>
+                            <Grid item xs={12} md={6}>
+                                <ConfidenceHeatMap
+                                    analysisData={result}
+                                    currentFrameIndex={currentFrameIndex}
+                                    onFrameSelect={handleFrameChange}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <EnhancedAnalyticsDashboard
+                                    statistics={result.statistics}
+                                    videoInfo={result.video_info}
+                                    processingInfo={result.processing_info}
+                                    latencyMs={result.latency_ms}
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <GradCAMViewer
+                                    analysisId={result.id}
+                                    currentFrameIndex={currentFrameIndex}
+                                    totalFrames={result.frames.length}
+                                    onFrameChange={handleFrameChange}
+                                />
+                            </Grid>
+                        </Grid>
+                    </Box>
                 </Box>
             )}
         </Box>

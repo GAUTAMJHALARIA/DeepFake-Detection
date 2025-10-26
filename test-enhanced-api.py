@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script for Enhanced Deepfake Detection API
+Test script for Deepfake Detection API
 """
 
 import requests
@@ -77,7 +77,7 @@ def test_redis_connection():
 
 def main():
     """Run all tests"""
-    print("🚀 Testing Enhanced Deepfake Detection API")
+    print("🚀 Testing Deepfake Detection API")
     print("=" * 50)
 
     tests = [
@@ -98,11 +98,11 @@ def main():
     print(f"📊 Test Results: {passed}/{total} passed")
 
     if passed == total:
-        print("🎉 All tests passed! Enhanced API is ready.")
+        print("🎉 All tests passed! API is ready.")
         print("\n💡 Next steps:")
         print("   1. Start the frontend: cd frontend && npm start")
         print("   2. Open http://localhost:3000")
-        print("   3. Try the Enhanced Analysis tab")
+        print("   3. Try the Deepfake Detection Analysis")
     else:
         print("⚠️  Some tests failed. Check the API configuration.")
         print("\n🔧 Troubleshooting:")

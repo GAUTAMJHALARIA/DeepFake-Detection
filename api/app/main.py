@@ -3,19 +3,16 @@ import uuid
 import numpy as np
 import base64
 import cv2
-from typing import List, Optional
+import os
+from typing import Optional
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 import logging
 
 from settings import settings
 from .inference import (
-    extract_frames_and_preprocess,
-    tfserving_predict,
-    aggregate,
-    process_image,
     get_supported_formats,
 )
 from .enhanced_inference import (
@@ -51,16 +48,6 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(bearer_sche
     return True
 
 
-class PredictResponse(BaseModel):
-    id: str
-    score: float
-    label: str
-    frame_samples: list
-    version: str
-    latency_ms: int
-    meta: dict
-
-
 class EnhancedPredictResponse(BaseModel):
     id: str
     score: float
@@ -70,12 +57,6 @@ class EnhancedPredictResponse(BaseModel):
     statistics: dict
     processing_info: dict
     latency_ms: int
-
-
-class BatchPredictResponse(BaseModel):
-    batch_id: str
-    results: List[PredictResponse]
-    summary: dict
 
 
 class FrameResponse(BaseModel):
@@ -93,112 +74,11 @@ class GradCAMResponse(BaseModel):
     overlay_base64: Optional[str] = None
 
 
-@app.post("/predict", response_model=PredictResponse)
+@app.post("/predict", response_model=EnhancedPredictResponse)
 async def predict(
     file: UploadFile = File(...), fps: float | None = None, auth=Depends(verify_token)
 ):
-    analysis_id = str(uuid.uuid4())
-    try:
-        content = await file.read()
-        start = time.time()
-
-        x, samples, meta = extract_frames_and_preprocess(
-            content, target_fps=fps or settings.DEFAULT_FPS
-        )
-
-        preds = tfserving_predict(x)
-        out = aggregate(preds, samples, threshold=settings.THRESHOLD)
-
-        latency_ms = int((time.time() - start) * 1000)
-
-        result = {
-            "id": analysis_id,
-            **out,
-            "version": settings.MODEL_VERSION,
-            "latency_ms": latency_ms,
-            "meta": meta,
-        }
-
-        return result
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/predict-image", response_model=PredictResponse)
-async def predict_image(file: UploadFile = File(...), auth=Depends(verify_token)):
-    """Analyze a single image for deepfake detection"""
-    analysis_id = str(uuid.uuid4())
-    try:
-        content = await file.read()
-        start = time.time()
-
-        result = process_image(content, analysis_id)
-        latency_ms = int((time.time() - start) * 1000)
-        result["latency_ms"] = latency_ms
-
-        return result
-
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/predict-batch", response_model=BatchPredictResponse)
-async def predict_batch(
-    files: List[UploadFile] = File(...),
-    fps: float | None = None,
-    auth=Depends(verify_token),
-):
-    """Process multiple files in batch"""
-    batch_id = str(uuid.uuid4())
-    results = []
-
-    for file in files:
-        try:
-            content = await file.read()
-            analysis_id = str(uuid.uuid4())
-            start = time.time()
-
-            x, samples, meta = extract_frames_and_preprocess(
-                content, target_fps=fps or settings.DEFAULT_FPS
-            )
-            preds = tfserving_predict(x)
-            out = aggregate(preds, samples, threshold=settings.THRESHOLD)
-            latency_ms = int((time.time() - start) * 1000)
-
-            result = {
-                "id": analysis_id,
-                **out,
-                "version": settings.MODEL_VERSION,
-                "latency_ms": latency_ms,
-                "meta": meta,
-            }
-
-            results.append(result)
-
-        except Exception:
-            # Continue with other files even if one fails
-            continue
-
-    summary = {
-        "total_files": len(files),
-        "successful": len(results),
-        "failed": len(files) - len(results),
-        "avg_score": sum(r["score"] for r in results) / len(results) if results else 0,
-        "fake_count": sum(1 for r in results if r["label"] == "fake"),
-        "real_count": sum(1 for r in results if r["label"] == "real"),
-    }
-
-    return {"batch_id": batch_id, "results": results, "summary": summary}
-
-
-@app.post("/predict-enhanced", response_model=EnhancedPredictResponse)
-async def predict_enhanced(
-    file: UploadFile = File(...), fps: float | None = None, auth=Depends(verify_token)
-):
-    """Enhanced video analysis with frame caching and Grad-CAM"""
+    """Advanced video analysis with frame-by-frame detection, caching, and Grad-CAM"""
     analysis_id = str(uuid.uuid4())
     try:
         content = await file.read()
@@ -227,25 +107,28 @@ async def predict_enhanced(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/predict-url-enhanced")
-async def predict_url_enhanced(
-    url: HttpUrl, fps: float | None = None, auth=Depends(verify_token)
-):
-    """Enhanced analysis from URL with full feature set"""
+class URLRequest(BaseModel):
+    url: str
+    fps: float | None = None
+
+
+@app.post("/predict-url")
+async def predict_url(request: URLRequest, auth=Depends(verify_token)):
+    """Advanced analysis from URL with full feature set"""
     analysis_id = str(uuid.uuid4())
     try:
-        logger.info(f"Downloading video from URL: {url}")
-        video_content = download_video_from_url(str(url))
+        logger.info(f"Downloading video from URL: {request.url}")
+        video_content = download_video_from_url(request.url)
 
         start = time.time()
         result = analyze_video_enhanced(
-            video_content, analysis_id, target_fps=fps or settings.DEFAULT_FPS
+            video_content, analysis_id, target_fps=request.fps or settings.DEFAULT_FPS
         )
 
         latency_ms = int((time.time() - start) * 1000)
         result["latency_ms"] = latency_ms
         result["version"] = settings.MODEL_VERSION
-        result["source_url"] = str(url)
+        result["source_url"] = str(request.url)
 
         return result
 
@@ -276,7 +159,7 @@ async def get_frame(analysis_id: str, frame_index: int, auth=Depends(verify_toke
     thumbnail_base64 = None
     if thumbnail is not None:
         # Convert thumbnail to base64
-        _, buffer = cv2.imencode(".jpg", thumbnail)
+        _, buffer = cv2.imencode(".png", thumbnail)
         thumbnail_base64 = base64.b64encode(buffer).decode("utf-8")
 
     return FrameResponse(
@@ -318,7 +201,7 @@ async def get_all_thumbnails(analysis_id: str, auth=Depends(verify_token)):
     for i in range(total_frames):
         thumbnail = cache.get_thumbnail(analysis_id, i)
         if thumbnail is not None:
-            _, buffer = cv2.imencode(".jpg", thumbnail)
+            _, buffer = cv2.imencode(".png", thumbnail)
             thumbnail_base64 = base64.b64encode(buffer).decode("utf-8")
 
             frame_info = analysis_data["frames"][i]
@@ -342,6 +225,48 @@ async def cleanup_analysis(analysis_id: str, auth=Depends(verify_token)):
         return {"message": f"Analysis {analysis_id} cleaned up successfully"}
     else:
         raise HTTPException(status_code=500, detail="Failed to cleanup analysis")
+
+
+@app.get("/video/{analysis_id}")
+async def get_converted_video(analysis_id: str):
+    """Get the converted video file for preview (no auth required)"""
+    try:
+        logger.info(f"Video request for analysis_id: {analysis_id}")
+
+        # Get analysis data to check if video was converted
+        analysis_data = cache.get_analysis_data(analysis_id)
+        if not analysis_data:
+            logger.error(f"Analysis not found: {analysis_id}")
+            raise HTTPException(status_code=404, detail="Analysis not found")
+
+        conversion_info = analysis_data.get("video_info", {}).get("conversion_info", {})
+        final_path = conversion_info.get("final_path")
+
+        logger.info(f"Conversion info: {conversion_info}")
+        logger.info(f"Final path: {final_path}")
+
+        if not final_path:
+            logger.error("No final_path in conversion_info")
+            raise HTTPException(status_code=404, detail="No converted video path found")
+
+        if not os.path.exists(final_path):
+            logger.error(f"Converted video file does not exist: {final_path}")
+            raise HTTPException(
+                status_code=404, detail="Converted video file not found"
+            )
+
+        logger.info(f"Serving converted video: {final_path}")
+
+        # Return the converted video file
+        from fastapi.responses import FileResponse
+
+        return FileResponse(
+            final_path, media_type="video/mp4", filename=f"converted_{analysis_id}.mp4"
+        )
+
+    except Exception as e:
+        logger.error(f"Error serving converted video: {e}")
+        raise HTTPException(status_code=500, detail=f"Error serving video: {str(e)}")
 
 
 @app.get("/health")

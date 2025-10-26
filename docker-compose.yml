@@ -3,7 +3,7 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 4gb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     healthcheck:

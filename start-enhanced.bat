@@ -1,5 +1,5 @@
 @echo off
-echo 🚀 Starting Enhanced Deepfake Detection System...
+echo 🚀 Starting Deepfake Detection System...
 echo ======================================
 
 REM Check if Docker is running
@@ -18,7 +18,7 @@ if not exist "models\deepfake\1" (
 )
 
 REM Start the enhanced services
-echo 🔧 Starting enhanced services (Redis + TensorFlow Serving + API)...
+echo 🔧 Starting services (Redis + TensorFlow Serving + API)...
 docker compose up -d
 
 REM Wait for services to be ready
@@ -46,20 +46,20 @@ if errorlevel 1 (
 REM Check API
 curl -s http://localhost:8000/health >nul 2>&1
 if errorlevel 1 (
-    echo ⚠️  Enhanced API is not ready yet
+    echo ⚠️  API is not ready yet
 ) else (
-    echo ✅ Enhanced API is ready
+    echo ✅ API is ready
 )
 
 echo.
-echo 🎉 Enhanced Deepfake Detection System is ready!
+echo 🎉 Deepfake Detection System is ready!
 echo ======================================
 echo 🌐 Web Interface: http://localhost:3000
 echo 🔧 API Documentation: http://localhost:8000/docs
 echo 📊 API Health: http://localhost:8000/health
-echo 🧪 Enhanced Endpoints: http://localhost:8000/predict-enhanced
+echo 🧪 Main Endpoint: http://localhost:8000/predict
 echo.
-echo 💡 New Features Available:
+echo 💡 Features Available:
 echo    ✨ Frame-by-frame video analysis
 echo    🎬 Interactive video player with confidence overlay
 echo    🔥 Confidence heat maps and timeline visualization

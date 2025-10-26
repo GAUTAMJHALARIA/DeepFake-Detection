@@ -147,11 +147,22 @@ class RedisCache:
             if frame_index > getattr(settings, "MAX_CACHED_FRAMES", 100):
                 return False
 
+            # Check Redis memory usage before storing
+            try:
+                info = self.redis_client.info("memory")
+                used_memory = info.get("used_memory", 0)
+                maxmemory = info.get("maxmemory", 0)
+                if maxmemory > 0 and used_memory > maxmemory * 0.95:
+                    logger.warning("Redis memory > 95% full, skipping thumbnail")
+                    return False
+            except Exception as e:
+                logger.warning(f"Could not check Redis memory: {e}")
+
             key = f"thumb:{analysis_id}:{frame_index}"
 
-            # Compress thumbnail more aggressively to save memory
+            # Reduce thumbnail size to save memory - balance quality vs memory
             small_thumbnail = cv2.resize(
-                thumbnail, (80, 45), interpolation=cv2.INTER_AREA
+                thumbnail, (320, 180), interpolation=cv2.INTER_AREA
             )
             encoded_data = self._encode_frame(small_thumbnail)
 

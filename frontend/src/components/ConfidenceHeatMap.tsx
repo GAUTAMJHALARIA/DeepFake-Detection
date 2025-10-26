@@ -10,6 +10,7 @@ import {
   Switch,
 } from '@mui/material';
 import * as d3 from 'd3';
+import axios from 'axios';
 
 interface FrameData {
   index: number;
@@ -21,6 +22,7 @@ interface FrameData {
 
 interface ConfidenceHeatMapProps {
   analysisData: {
+    id: string;
     frames: FrameData[];
     video_info: {
       duration: number;
@@ -44,7 +46,40 @@ const ConfidenceHeatMap: React.FC<ConfidenceHeatMapProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [showFaceDetection, setShowFaceDetection] = useState(true);
-  const [heatMapHeight, setHeatMapHeight] = useState(200);
+  const [heatMapHeight, setHeatMapHeight] = useState(250);
+  const [thumbnails, setThumbnails] = useState<{[key: number]: string}>({});
+  const [showThumbnails, setShowThumbnails] = useState(true);
+
+  // Fetch thumbnails when analysis data is available
+  useEffect(() => {
+    const fetchThumbnails = async () => {
+      if (!analysisData.id) return;
+
+      try {
+        console.log('Fetching thumbnails for analysis:', analysisData.id);
+        const response = await axios.get(
+          `http://localhost:8000/thumbnails/${analysisData.id}`,
+          {
+            headers: {
+              'Authorization': 'Bearer change-me',
+            },
+          }
+        );
+
+        const thumbnailMap: {[key: number]: string} = {};
+        response.data.thumbnails.forEach((thumb: any) => {
+          thumbnailMap[thumb.frame_index] = thumb.thumbnail_base64;
+        });
+
+        console.log('Thumbnails loaded:', Object.keys(thumbnailMap).length);
+        setThumbnails(thumbnailMap);
+      } catch (error) {
+        console.error('Failed to fetch thumbnails:', error);
+      }
+    };
+
+    fetchThumbnails();
+  }, [analysisData.id]);
 
   useEffect(() => {
     if (!svgRef.current || !analysisData.frames.length) return;
@@ -80,6 +115,7 @@ const ConfidenceHeatMap: React.FC<ConfidenceHeatMapProps> = ({
 
     // Create heat map rectangles
     const rectWidth = width / analysisData.frames.length;
+    const thumbnailHeight = showThumbnails ? Math.min(80, height * 0.3) : 0;
 
     g.selectAll(".confidence-rect")
       .data(analysisData.frames)
@@ -87,9 +123,9 @@ const ConfidenceHeatMap: React.FC<ConfidenceHeatMapProps> = ({
       .append("rect")
       .attr("class", "confidence-rect")
       .attr("x", (d) => xScale(d.timestamp))
-      .attr("y", 0)
+      .attr("y", thumbnailHeight)
       .attr("width", Math.max(1, rectWidth))
-      .attr("height", height)
+      .attr("height", height - thumbnailHeight)
       .attr("fill", (d) => colorScale(1 - d.confidence)) // Invert for Red-Yellow-Green
       .attr("stroke", "none")
       .style("cursor", "pointer")
@@ -127,6 +163,28 @@ const ConfidenceHeatMap: React.FC<ConfidenceHeatMapProps> = ({
         d3.selectAll(".tooltip").remove();
         d3.select(this).attr("stroke", "none");
       });
+
+    // Add thumbnails if available and enabled
+    if (showThumbnails && Object.keys(thumbnails).length > 0) {
+      // Sample frames to show fewer, larger thumbnails
+      const frameStep = Math.max(1, Math.floor(analysisData.frames.length / 20)); // Show max 20 thumbnails
+      const sampledFrames = analysisData.frames.filter((d, i) => i % frameStep === 0 && thumbnails[d.index]);
+
+      g.selectAll(".thumbnail")
+        .data(sampledFrames)
+        .enter()
+        .append("image")
+        .attr("class", "thumbnail")
+        .attr("x", (d) => xScale(d.timestamp))
+        .attr("y", 0)
+        .attr("width", Math.max(8, rectWidth * 3)) // Make thumbnails much wider
+        .attr("height", thumbnailHeight)
+        .attr("href", (d) => `data:image/png;base64,${thumbnails[d.index]}`)
+        .style("cursor", "pointer")
+        .on("click", (event, d) => {
+          onFrameSelect(d.index);
+        });
+    }
 
     // Face detection indicators
     if (showFaceDetection) {
@@ -226,7 +284,7 @@ const ConfidenceHeatMap: React.FC<ConfidenceHeatMapProps> = ({
       .style("font-size", "12px")
       .text("Fake");
 
-  }, [analysisData, currentFrameIndex, showFaceDetection, heatMapHeight, zoomLevel]);
+  }, [analysisData, currentFrameIndex, showFaceDetection, heatMapHeight, zoomLevel, thumbnails, showThumbnails]);
 
   const getConfidenceStats = () => {
     const { frames } = analysisData;
@@ -246,6 +304,7 @@ const ConfidenceHeatMap: React.FC<ConfidenceHeatMapProps> = ({
       </Typography>
       <Typography variant="body2" color="textSecondary" paragraph>
         Interactive timeline showing confidence scores across the entire video. Click on any point to jump to that frame.
+        {Object.keys(thumbnails).length > 0 && ` (${Object.keys(thumbnails).length} preview frames loaded)`}
       </Typography>
 
       {/* Controls */}
@@ -265,6 +324,7 @@ const ConfidenceHeatMap: React.FC<ConfidenceHeatMapProps> = ({
                 marks={[
                   { value: 150, label: '150px' },
                   { value: 200, label: '200px' },
+                  { value: 250, label: '250px' },
                   { value: 300, label: '300px' },
                   { value: 400, label: '400px' },
                 ]}
@@ -280,6 +340,16 @@ const ConfidenceHeatMap: React.FC<ConfidenceHeatMapProps> = ({
                 />
               }
               label="Show Face Detection Issues"
+            />
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showThumbnails}
+                  onChange={(e) => setShowThumbnails(e.target.checked)}
+                />
+              }
+              label="Show Preview Frames"
             />
           </Box>
         </CardContent>

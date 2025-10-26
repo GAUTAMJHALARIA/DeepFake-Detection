@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import {
   CssBaseline,
@@ -7,17 +7,13 @@ import {
   Toolbar,
   Typography,
   Container,
-  Tabs,
-  Tab,
   Chip
 } from '@mui/material';
 import {
   Security,
-  VideoLibrary,
   Analytics
 } from '@mui/icons-material';
 
-import VideoUpload from './components/VideoUpload';
 import EnhancedVideoAnalysis from './components/EnhancedVideoAnalysis';
 
 const theme = createTheme({
@@ -44,34 +40,7 @@ const theme = createTheme({
   },
 });
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`tabpanel-${index}`}
-      aria-labelledby={`tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
-    </div>
-  );
-}
-
 function App() {
-  const [tabValue, setTabValue] = useState(0);
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -84,50 +53,22 @@ function App() {
               Deepfake Detection System
             </Typography>
             <Box display="flex" alignItems="center" gap={2}>
+              <Analytics sx={{ mr: 1 }} />
               <Chip
-                label="Enhanced Edition"
+                label="AI-Powered Analysis"
                 color="secondary"
                 size="small"
                 sx={{ fontWeight: 'bold' }}
               />
               <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                Advanced AI-Powered Video Analysis
+                Frame-by-Frame Deepfake Detection
               </Typography>
             </Box>
           </Toolbar>
         </AppBar>
 
         <Container maxWidth="xl" sx={{ mt: 2 }}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-            <Tabs
-              value={tabValue}
-              onChange={handleTabChange}
-              aria-label="analysis tabs"
-              variant="scrollable"
-              scrollButtons="auto"
-            >
-              <Tab
-                icon={<VideoLibrary />}
-                label="Basic Analysis"
-                id="tab-0"
-                aria-controls="tabpanel-0"
-              />
-              <Tab
-                icon={<Analytics />}
-                label="Enhanced Analysis"
-                id="tab-1"
-                aria-controls="tabpanel-1"
-              />
-            </Tabs>
-          </Box>
-
-          <TabPanel value={tabValue} index={0}>
-            <VideoUpload />
-          </TabPanel>
-
-          <TabPanel value={tabValue} index={1}>
-            <EnhancedVideoAnalysis />
-          </TabPanel>
+          <EnhancedVideoAnalysis />
         </Container>
       </Box>
     </ThemeProvider>

@@ -48,7 +48,7 @@ def generate_gradcam_heatmaps(
                 heatmaps.append(heatmap)
 
                 if i % 10 == 0:
-                    print(f"Generated heatmap {i+1}/{len(images)}")
+                    print(f"Generated heatmap {i + 1}/{len(images)}")
 
             except Exception as e:
                 print(f"Error generating heatmap for image {i}: {e}")
