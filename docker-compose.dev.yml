@@ -1,0 +1,49 @@
+services:
+  tfserving:
+    image: tensorflow/serving:2.14.1
+    environment:
+      - MODEL_NAME=deepfake
+      - MODEL_BASE_PATH=/models
+    volumes:
+      - ./models/deepfake:/models/deepfake:ro
+    ports:
+      - "8501:8501"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - TF_SERVING_URL=http://tfserving:8501
+      - MODEL_NAME=deepfake
+      - MODEL_VERSION=1
+      - THRESHOLD=0.5
+      - DEFAULT_FPS=2.0
+      - MAX_FRAMES=256
+      - REQUEST_TIMEOUT=30
+      - REQUIRE_AUTH=false
+      - JWT_SECRET=change-me
+    depends_on:
+      - tfserving
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app/api
+      - ./settings.py:/app/settings.py
+      - ./deepfake_analysis.db:/app/deepfake_analysis.db
+    command: ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - api
