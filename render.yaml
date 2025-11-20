@@ -1,0 +1,52 @@
+# Render Blueprint Configuration
+# This file allows you to deploy multiple services at once
+# Note: Render may require manual setup through dashboard instead
+
+services:
+  # FastAPI Backend Service
+  - type: web
+    name: deepfake-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: TF_SERVING_URL
+        value: http://tfserving.onrender.com:8501
+      - key: REDIS_URL
+        sync: false  # Set manually from Redis service
+      - key: MODEL_NAME
+        value: deepfake
+      - key: MODEL_VERSION
+        value: "1"
+      - key: THRESHOLD
+        value: "0.5"
+      - key: DEFAULT_FPS
+        value: "2.0"
+      - key: MAX_FRAMES
+        value: "256"
+      - key: REQUIRE_AUTH
+        value: "false"
+      - key: CORS_ORIGINS
+        sync: false  # Set manually with your Vercel URL
+    healthCheckPath: /health
+
+  # TensorFlow Serving Service (Optional)
+  - type: web
+    name: tfserving
+    env: docker
+    dockerfilePath: ./Dockerfile.tfserving
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: MODEL_NAME
+        value: deepfake
+      - key: MODEL_BASE_PATH
+        value: /models
+
+# Redis Database
+databases:
+  - name: deepfake-redis
+    plan: free
+    databaseName: deepfake
+    databaseUser: deepfake

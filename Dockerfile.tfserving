@@ -1,0 +1,15 @@
+FROM tensorflow/serving:2.14.1
+
+# Copy model files to the models directory
+# TensorFlow Serving expects models in /models/<model_name>/<version>
+COPY models/deepfake /models/deepfake
+
+# Set environment variables
+ENV MODEL_NAME=deepfake
+ENV MODEL_BASE_PATH=/models
+
+# Expose TensorFlow Serving port
+EXPOSE 8501
+
+# TensorFlow Serving will automatically discover and serve models from /models
+# The default command from the base image will start the server

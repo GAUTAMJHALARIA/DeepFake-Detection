@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV POETRY_VERSION=2.1.3 \
     POETRY_VIRTUALENVS_CREATE=false \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    PORT=10000
 
 RUN pip install --no-cache-dir "poetry==$POETRY_VERSION"
 
@@ -20,5 +21,6 @@ COPY api ./api
 
 WORKDIR /app/api
 
-EXPOSE 8000
-CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Render uses PORT environment variable (defaults to 10000)
+EXPOSE $PORT
+CMD poetry run uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}
