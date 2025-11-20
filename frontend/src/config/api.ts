@@ -21,12 +21,22 @@ export const getApiUrl = (endpoint: string): string => {
 
 /**
  * Get default headers for API requests
+ * @param additionalHeaders - Additional headers to merge
+ * @param skipContentType - Skip setting Content-Type (useful for FormData)
  */
-export const getApiHeaders = (additionalHeaders: Record<string, string> = {}): Record<string, string> => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...additionalHeaders,
-  };
+export const getApiHeaders = (
+  additionalHeaders: Record<string, string> = {},
+  skipContentType: boolean = false
+): Record<string, string> => {
+  const headers: Record<string, string> = {};
+
+  // Only set Content-Type if not skipped (for FormData, axios will set it automatically)
+  if (!skipContentType && !additionalHeaders['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  // Merge additional headers (they take precedence)
+  Object.assign(headers, additionalHeaders);
 
   // Add authorization header if token is set and not the default
   if (API_TOKEN && API_TOKEN !== 'change-me') {

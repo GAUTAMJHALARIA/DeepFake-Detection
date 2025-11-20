@@ -126,8 +126,8 @@ const EnhancedVideoAnalysis: React.FC = () => {
 
             const response = await axios.post(API_ENDPOINTS.PREDICT, formData, {
                 headers: {
-                    'Content-Type': 'multipart/form-data',
-                    ...getApiHeaders(),
+                    // Don't set Content-Type - axios will set it automatically with boundary for FormData
+                    ...getApiHeaders({}, true), // skipContentType = true
                 },
                 onUploadProgress: (progressEvent) => {
                     if (progressEvent.total) {
