@@ -96,8 +96,13 @@ RUN if [ -n "$MODEL_DOWNLOAD_URL" ]; then \
 ENV MODEL_NAME=deepfake
 ENV MODEL_BASE_PATH=/models
 
+# Configure TensorFlow Serving to bind to all interfaces (required for Render)
+# This ensures Render can reach the service for health checks
+ENV PORT=8501
+
 # Expose TensorFlow Serving port
 EXPOSE 8501
 
-# TensorFlow Serving will automatically discover and serve models from /models
-# The default command from the base image will start the server
+# Override command to bind to 0.0.0.0 instead of localhost
+# This is required for Render to access the service
+CMD ["tensorflow_model_server", "--port=8501", "--rest_api_port=8501", "--model_name=deepfake", "--model_base_path=/models/deepfake", "--rest_api_bind_ip=0.0.0.0"]
