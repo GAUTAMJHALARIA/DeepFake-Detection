@@ -13,39 +13,51 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ARG MODEL_DOWNLOAD_URL=""
 
 # Download models if URL is provided
+# Use POSIX-compliant shell syntax (not bash-specific [[ ]])
 RUN if [ -n "$MODEL_DOWNLOAD_URL" ]; then \
     echo "Downloading models from: $MODEL_DOWNLOAD_URL" && \
     mkdir -p /models/deepfake && \
-    if [[ "$MODEL_DOWNLOAD_URL" == *.zip ]]; then \
-        echo "Downloading zip file..." && \
-        wget -q -O /tmp/models.zip "$MODEL_DOWNLOAD_URL" || curl -L -o /tmp/models.zip "$MODEL_DOWNLOAD_URL" && \
-        echo "Extracting models..." && \
-        unzip -q /tmp/models.zip -d /tmp && \
-        if [ -d "/tmp/deepfake" ]; then \
-            mv /tmp/deepfake/* /models/deepfake/; \
-        elif [ -d "/tmp/models/deepfake" ]; then \
-            mv /tmp/models/deepfake/* /models/deepfake/; \
-        else \
-            echo "Warning: Unexpected zip structure" && find /tmp -name "saved_model.pb" | head -1 | xargs -I {} dirname {} | xargs -I {} cp -r {} /models/deepfake/; \
-        fi && \
-        rm -rf /tmp/models.zip /tmp/deepfake /tmp/models; \
-    elif [[ "$MODEL_DOWNLOAD_URL" == *.tar.gz ]] || [[ "$MODEL_DOWNLOAD_URL" == *.tgz ]]; then \
-        echo "Downloading tar.gz file..." && \
-        wget -q -O /tmp/models.tar.gz "$MODEL_DOWNLOAD_URL" || curl -L -o /tmp/models.tar.gz "$MODEL_DOWNLOAD_URL" && \
-        echo "Extracting models..." && \
-        tar -xzf /tmp/models.tar.gz -C /tmp && \
-        if [ -d "/tmp/deepfake" ]; then \
-            mv /tmp/deepfake/* /models/deepfake/; \
-        elif [ -d "/tmp/models/deepfake" ]; then \
-            mv /tmp/models/deepfake/* /models/deepfake/; \
-        else \
-            find /tmp -name "saved_model.pb" | head -1 | xargs -I {} dirname {} | xargs -I {} cp -r {} /models/deepfake/; \
-        fi && \
-        rm -rf /tmp/models.tar.gz /tmp/deepfake /tmp/models; \
-    else \
-        echo "Error: Unsupported file format. Use .zip or .tar.gz"; \
-        exit 1; \
-    fi && \
+    case "$MODEL_DOWNLOAD_URL" in \
+        *.zip) \
+            echo "Downloading zip file..." && \
+            wget -q -O /tmp/models.zip "$MODEL_DOWNLOAD_URL" || curl -L -o /tmp/models.zip "$MODEL_DOWNLOAD_URL" && \
+            echo "Extracting models..." && \
+            unzip -q /tmp/models.zip -d /tmp && \
+            if [ -d "/tmp/deepfake" ]; then \
+                mv /tmp/deepfake/* /models/deepfake/; \
+            elif [ -d "/tmp/models/deepfake" ]; then \
+                mv /tmp/models/deepfake/* /models/deepfake/; \
+            else \
+                echo "Warning: Unexpected zip structure, searching for saved_model.pb..." && \
+                MODEL_DIR=$(find /tmp -name "saved_model.pb" -type f | head -1 | xargs dirname) && \
+                if [ -n "$MODEL_DIR" ]; then \
+                    cp -r "$MODEL_DIR"/* /models/deepfake/ 2>/dev/null || true; \
+                fi; \
+            fi && \
+            rm -rf /tmp/models.zip /tmp/deepfake /tmp/models; \
+            ;; \
+        *.tar.gz|*.tgz) \
+            echo "Downloading tar.gz file..." && \
+            wget -q -O /tmp/models.tar.gz "$MODEL_DOWNLOAD_URL" || curl -L -o /tmp/models.tar.gz "$MODEL_DOWNLOAD_URL" && \
+            echo "Extracting models..." && \
+            tar -xzf /tmp/models.tar.gz -C /tmp && \
+            if [ -d "/tmp/deepfake" ]; then \
+                mv /tmp/deepfake/* /models/deepfake/; \
+            elif [ -d "/tmp/models/deepfake" ]; then \
+                mv /tmp/models/deepfake/* /models/deepfake/; \
+            else \
+                MODEL_DIR=$(find /tmp -name "saved_model.pb" -type f | head -1 | xargs dirname) && \
+                if [ -n "$MODEL_DIR" ]; then \
+                    cp -r "$MODEL_DIR"/* /models/deepfake/ 2>/dev/null || true; \
+                fi; \
+            fi && \
+            rm -rf /tmp/models.tar.gz /tmp/deepfake /tmp/models; \
+            ;; \
+        *) \
+            echo "Error: Unsupported file format. Use .zip or .tar.gz"; \
+            exit 1; \
+            ;; \
+    esac && \
     if [ -d "/models/deepfake/1" ] || [ -f "/models/deepfake/1/saved_model.pb" ]; then \
         echo "Models downloaded successfully!" && ls -la /models/deepfake; \
     else \
