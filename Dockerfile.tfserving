@@ -21,20 +21,40 @@ RUN if [ -n "$MODEL_DOWNLOAD_URL" ]; then \
         *.zip) \
             echo "Downloading zip file..." && \
             wget -q -O /tmp/models.zip "$MODEL_DOWNLOAD_URL" || curl -L -o /tmp/models.zip "$MODEL_DOWNLOAD_URL" && \
-            echo "Extracting models..." && \
-            unzip -q /tmp/models.zip -d /tmp && \
-            if [ -d "/tmp/deepfake" ]; then \
-                mv /tmp/deepfake/* /models/deepfake/; \
+            echo "Extracting models (handling Windows paths)..." && \
+            cd /tmp && \
+            unzip -q -o models.zip 2>&1 | grep -v "backslashes" || true && \
+            cd / && \
+            if [ -d "/tmp/deepfake/1" ]; then \
+                echo "Found /tmp/deepfake/1, copying to /models/deepfake/1..." && \
+                mkdir -p /models/deepfake/1 && \
+                cp -r /tmp/deepfake/1/* /models/deepfake/1/ 2>/dev/null || true; \
+            elif [ -d "/tmp/deepfake" ]; then \
+                echo "Found /tmp/deepfake, copying to /models/deepfake..." && \
+                cp -r /tmp/deepfake/* /models/deepfake/ 2>/dev/null || true; \
+            elif [ -d "/tmp/models/deepfake/1" ]; then \
+                echo "Found /tmp/models/deepfake/1, copying to /models/deepfake/1..." && \
+                mkdir -p /models/deepfake/1 && \
+                cp -r /tmp/models/deepfake/1/* /models/deepfake/1/ 2>/dev/null || true; \
             elif [ -d "/tmp/models/deepfake" ]; then \
-                mv /tmp/models/deepfake/* /models/deepfake/; \
+                echo "Found /tmp/models/deepfake, copying to /models/deepfake..." && \
+                cp -r /tmp/models/deepfake/* /models/deepfake/ 2>/dev/null || true; \
             else \
-                echo "Warning: Unexpected zip structure, searching for saved_model.pb..." && \
-                MODEL_DIR=$(find /tmp -name "saved_model.pb" -type f | head -1 | xargs dirname) && \
-                if [ -n "$MODEL_DIR" ]; then \
-                    cp -r "$MODEL_DIR"/* /models/deepfake/ 2>/dev/null || true; \
+                echo "Searching for saved_model.pb to locate model directory..." && \
+                MODEL_FILE=$(find /tmp -name "saved_model.pb" -type f 2>/dev/null | head -1) && \
+                if [ -n "$MODEL_FILE" ]; then \
+                    MODEL_DIR=$(dirname "$MODEL_FILE") && \
+                    echo "Found model directory at: $MODEL_DIR" && \
+                    if [ -d "$MODEL_DIR" ]; then \
+                        cp -r "$MODEL_DIR"/* /models/deepfake/ 2>/dev/null || true; \
+                    fi; \
+                else \
+                    echo "Listing /tmp contents to debug..." && \
+                    find /tmp -type d -maxdepth 3 2>/dev/null | head -15 && \
+                    find /tmp -type f -name "*.pb" -o -name "*.index" 2>/dev/null | head -10; \
                 fi; \
             fi && \
-            rm -rf /tmp/models.zip /tmp/deepfake /tmp/models; \
+            rm -rf /tmp/models.zip /tmp/deepfake /tmp/models 2>/dev/null || true; \
             ;; \
         *.tar.gz|*.tgz) \
             echo "Downloading tar.gz file..." && \
