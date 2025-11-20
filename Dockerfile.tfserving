@@ -12,15 +12,47 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set this in Render: Settings → Build & Deploy → Build Arguments
 ARG MODEL_DOWNLOAD_URL=""
 
-# Copy download script
-COPY download-models.sh /tmp/download-models.sh
-RUN chmod +x /tmp/download-models.sh
-
-# Download models if URL is provided, otherwise try to copy from context
+# Download models if URL is provided
 RUN if [ -n "$MODEL_DOWNLOAD_URL" ]; then \
-    /tmp/download-models.sh; \
+    echo "Downloading models from: $MODEL_DOWNLOAD_URL" && \
+    mkdir -p /models/deepfake && \
+    if [[ "$MODEL_DOWNLOAD_URL" == *.zip ]]; then \
+        echo "Downloading zip file..." && \
+        wget -q -O /tmp/models.zip "$MODEL_DOWNLOAD_URL" || curl -L -o /tmp/models.zip "$MODEL_DOWNLOAD_URL" && \
+        echo "Extracting models..." && \
+        unzip -q /tmp/models.zip -d /tmp && \
+        if [ -d "/tmp/deepfake" ]; then \
+            mv /tmp/deepfake/* /models/deepfake/; \
+        elif [ -d "/tmp/models/deepfake" ]; then \
+            mv /tmp/models/deepfake/* /models/deepfake/; \
+        else \
+            echo "Warning: Unexpected zip structure" && find /tmp -name "saved_model.pb" | head -1 | xargs -I {} dirname {} | xargs -I {} cp -r {} /models/deepfake/; \
+        fi && \
+        rm -rf /tmp/models.zip /tmp/deepfake /tmp/models; \
+    elif [[ "$MODEL_DOWNLOAD_URL" == *.tar.gz ]] || [[ "$MODEL_DOWNLOAD_URL" == *.tgz ]]; then \
+        echo "Downloading tar.gz file..." && \
+        wget -q -O /tmp/models.tar.gz "$MODEL_DOWNLOAD_URL" || curl -L -o /tmp/models.tar.gz "$MODEL_DOWNLOAD_URL" && \
+        echo "Extracting models..." && \
+        tar -xzf /tmp/models.tar.gz -C /tmp && \
+        if [ -d "/tmp/deepfake" ]; then \
+            mv /tmp/deepfake/* /models/deepfake/; \
+        elif [ -d "/tmp/models/deepfake" ]; then \
+            mv /tmp/models/deepfake/* /models/deepfake/; \
+        else \
+            find /tmp -name "saved_model.pb" | head -1 | xargs -I {} dirname {} | xargs -I {} cp -r {} /models/deepfake/; \
+        fi && \
+        rm -rf /tmp/models.tar.gz /tmp/deepfake /tmp/models; \
     else \
-    echo "MODEL_DOWNLOAD_URL not set. Models must be in build context."; \
+        echo "Error: Unsupported file format. Use .zip or .tar.gz"; \
+        exit 1; \
+    fi && \
+    if [ -d "/models/deepfake/1" ] || [ -f "/models/deepfake/1/saved_model.pb" ]; then \
+        echo "Models downloaded successfully!" && ls -la /models/deepfake; \
+    else \
+        echo "Warning: Models may not be in expected structure." && find /models/deepfake -type f | head -10; \
+    fi; \
+    else \
+    echo "MODEL_DOWNLOAD_URL not set. Models must be in build context or provided via URL."; \
     fi
 
 # Try to copy models from build context (if they exist in repo)
