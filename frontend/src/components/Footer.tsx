@@ -21,14 +21,41 @@ const Footer: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size
+    // Debounce resize to prevent forced reflows
+    let resizeTimeout: NodeJS.Timeout;
+    let rafId: number | null = null;
+
     const resizeCanvas = () => {
-      canvas.width = canvas.offsetWidth * 2;
-      canvas.height = canvas.offsetHeight * 2;
-      ctx.scale(2, 2);
+      // Cancel any pending resize
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+
+      // Use requestAnimationFrame to batch resize operations
+      rafId = requestAnimationFrame(() => {
+        const width = canvas.offsetWidth;
+        const height = canvas.offsetHeight;
+
+        // Only resize if dimensions actually changed
+        if (canvas.width !== width * 2 || canvas.height !== height * 2) {
+          canvas.width = width * 2;
+          canvas.height = height * 2;
+          ctx.scale(2, 2);
+        }
+        rafId = null;
+      });
     };
+
+    // Initial resize
     resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+
+    // Debounced resize handler
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(resizeCanvas, 150);
+    };
+
+    window.addEventListener('resize', handleResize, { passive: true });
 
     // AI Nodes (points on sphere)
     const numNodes = 350;
@@ -158,7 +185,11 @@ const Footer: React.FC = () => {
     animate();
 
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimeout);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
     };
   }, []);
 

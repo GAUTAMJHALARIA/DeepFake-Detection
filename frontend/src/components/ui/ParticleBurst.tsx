@@ -20,8 +20,9 @@ const ParticleBurst: React.FC<ParticleBurstProps> = ({ trigger, onComplete }) =>
 
       for (let i = 0; i < numParticles; i++) {
         const angle = (i / numParticles) * Math.PI * 2;
-        const speed = 0.5 + Math.random() * 0.5;
-        const distance = 30 + Math.random() * 20;
+        // Speed and distance calculated but not used in current implementation
+        // const speed = 0.5 + Math.random() * 0.5;
+        // const distance = 30 + Math.random() * 20;
 
         const colors = [
           'hsl(200, 100%, 55%)',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Container, Typography, Grid, Card, CardContent, Chip } from '@mui/material';
+import { Box, Container, Typography, Grid, Card, CardContent } from '@mui/material';
 import {
   CloudUpload,
   Link as LinkIcon,
@@ -7,9 +7,6 @@ import {
   BarChart,
   Psychology,
   Speed,
-  VideoFile,
-  Analytics,
-  Security,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import CreativeFeatures from '../components/CreativeFeatures';

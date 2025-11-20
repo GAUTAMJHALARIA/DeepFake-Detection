@@ -15,10 +15,8 @@ import {
   SkipNext,
   SkipPrevious,
   Speed,
-  Fullscreen,
   VolumeUp,
 } from '@mui/icons-material';
-import { motion } from 'framer-motion';
 import { useHotkeys } from 'react-hotkeys-hook';
 
 interface VideoFrame {
@@ -368,43 +366,7 @@ const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getRecommendedFormats = () => {
-    const recommendations = [];
-    if (codecSupport.mp4 || codecSupport.mp4_h264) {
-      recommendations.push('MP4 (H.264)');
-    }
-    if (codecSupport.webm || codecSupport.webm_vp9) {
-      recommendations.push('WebM (VP8/VP9)');
-    }
-    if (codecSupport.ogg) {
-      recommendations.push('OGG (Theora)');
-    }
-    return recommendations.length > 0 ? recommendations.join(', ') : 'No supported formats detected';
-  };
-
-  const getMP4ConversionGuide = () => {
-    return {
-      title: "MP4 Codec Issue Detected",
-      description: "Your MP4 file likely uses H.265/HEVC codec which isn't widely supported in browsers.",
-      solutions: [
-        {
-          title: "Convert to H.264 MP4 (Recommended)",
-          command: "ffmpeg -i input.mp4 -c:v libx264 -profile:v baseline -c:a aac output.mp4",
-          description: "This creates a browser-compatible MP4 file"
-        },
-        {
-          title: "Convert to WebM (Alternative)",
-          command: "ffmpeg -i input.mp4 -c:v libvpx-vp9 -c:a libopus output.webm",
-          description: "WebM has excellent browser support"
-        },
-        {
-          title: "Batch Convert Multiple Files",
-          command: "for %f in (*.mp4) do ffmpeg -i \"%f\" -c:v libx264 -profile:v baseline -c:a aac \"converted_%f\"",
-          description: "Convert all MP4 files in a folder"
-        }
-      ]
-    };
-  };
+  // Removed unused functions: getRecommendedFormats, getMP4ConversionGuide
 
   const currentFrame = getCurrentFrame();
 

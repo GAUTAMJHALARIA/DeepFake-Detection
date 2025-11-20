@@ -17,18 +17,12 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  Security,
   Menu,
   Close,
   Home,
-  Analytics,
-  Science,
-  Info,
-  Shield,
   Dashboard,
   Explore,
   InfoOutlined,
-  Fingerprint,
 } from '@mui/icons-material';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 

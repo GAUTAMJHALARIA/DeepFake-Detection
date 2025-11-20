@@ -94,6 +94,7 @@ const GradCAMViewer: React.FC<GradCAMViewerProps> = ({
   // Load data when frame changes
   useEffect(() => {
     loadGradCAM(currentFrameIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFrameIndex, analysisId]);
 
   const handleFrameNavigation = (direction: number) => {

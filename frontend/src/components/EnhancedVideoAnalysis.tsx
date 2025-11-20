@@ -13,17 +13,11 @@ import {
     Chip,
     Divider,
     TextField,
-    Tabs,
-    Tab,
 } from '@mui/material';
 import {
     CloudUpload,
     VideoFile,
-    Analytics,
-    Timeline,
-    Visibility,
     Link as LinkIcon,
-    InsertDriveFile,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import axios from 'axios';

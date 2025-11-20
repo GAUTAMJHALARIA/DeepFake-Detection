@@ -44,7 +44,7 @@ const ConfidenceHeatMap: React.FC<ConfidenceHeatMapProps> = ({
   onFrameSelect,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomLevel] = useState(1);
   const [showFaceDetection, setShowFaceDetection] = useState(true);
   const [heatMapHeight, setHeatMapHeight] = useState(250);
   const [thumbnails, setThumbnails] = useState<{[key: number]: string}>({});
@@ -284,7 +284,7 @@ const ConfidenceHeatMap: React.FC<ConfidenceHeatMapProps> = ({
       .style("font-size", "12px")
       .text("Fake");
 
-  }, [analysisData, currentFrameIndex, showFaceDetection, heatMapHeight, zoomLevel, thumbnails, showThumbnails]);
+  }, [analysisData, currentFrameIndex, showFaceDetection, heatMapHeight, zoomLevel, thumbnails, showThumbnails, onFrameSelect]);
 
   const getConfidenceStats = () => {
     const { frames } = analysisData;

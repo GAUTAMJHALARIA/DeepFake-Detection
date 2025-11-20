@@ -22,13 +22,54 @@ const ParticleBackground: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size
+    // Debounce resize to prevent forced reflows
+    let resizeTimeout: NodeJS.Timeout;
+    let rafId: number | null = null;
+
     const resizeCanvas = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      // Cancel any pending resize
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+
+      // Use requestAnimationFrame to batch resize operations
+      rafId = requestAnimationFrame(() => {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // Only resize if dimensions actually changed
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+
+          // Recreate particles if canvas size changed significantly
+          const newParticleCount = Math.floor((width * height) / 15000);
+          if (Math.abs(newParticleCount - particlesRef.current.length) > 10) {
+            particlesRef.current = Array.from({ length: newParticleCount }, () => ({
+              x: Math.random() * width,
+              y: Math.random() * height,
+              vx: (Math.random() - 0.5) * 0.3,
+              vy: (Math.random() - 0.5) * 0.3,
+              size: Math.random() * 1.5 + 0.5,
+              opacity: Math.random() * 0.5 + 0.2,
+              delay: Math.random() * 100,
+            }));
+          }
+        }
+        rafId = null;
+      });
     };
+
+    // Initial resize
     resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+
+    // Debounced resize handler
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(resizeCanvas, 150);
+    };
+
+    window.addEventListener('resize', handleResize, { passive: true });
 
     // Create particles
     const particleCount = Math.floor((window.innerWidth * window.innerHeight) / 15000);
@@ -94,7 +135,11 @@ const ParticleBackground: React.FC = () => {
     animate();
 
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimeout);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
