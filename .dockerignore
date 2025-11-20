@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Node.js
+node_modules/
+npm-debug.log
+frontend/node_modules/
+frontend/build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+models/deepfake/
+*.ipynb
+*.md
+!README.md
+*.bat
+*.sh
+*.log
+.git/
+.gitignore
+
+# Large files that shouldn't be in build context
+*.h5
+*.pb
+assets/
+infra/
+monitoring/
+logging/
+scripts/
+worker/
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Environment
+.env
+.env.local
+
+# Documentation
+*.md
+!README.md
+
+# Test files
+test-*.py
+*_test.py

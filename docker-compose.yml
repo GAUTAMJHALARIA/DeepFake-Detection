@@ -31,6 +31,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    env_file:
+      - .env
     environment:
       - TF_SERVING_URL=http://tfserving:8501
       - REDIS_URL=redis://redis:6379

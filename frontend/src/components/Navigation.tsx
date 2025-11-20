@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -24,8 +24,64 @@ import {
   Analytics,
   Science,
   Info,
+  Shield,
+  Dashboard,
+  Explore,
+  InfoOutlined,
+  Fingerprint,
 } from '@mui/icons-material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
+
+// Magnification effect for navigation items
+const NavItemWithMagnification: React.FC<{
+  item: { label: string; path: string; icon: React.ReactNode };
+  isActive: boolean;
+  onClick: () => void;
+  mouseX: any;
+}> = ({ item, isActive, onClick, mouseX }) => {
+  const ref = useRef<HTMLButtonElement>(null);
+
+  const distance = useTransform(mouseX, (val: number) => {
+    const bounds = ref.current?.getBoundingClientRect() ?? { x: 0, width: 0 };
+    return val - bounds.x - bounds.width / 2;
+  });
+
+  const widthSync = useTransform(distance, [-150, 0, 150], [1, 1.08, 1]);
+  const width = useSpring(widthSync, { mass: 0.1, stiffness: 150, damping: 12 });
+
+  return (
+    <motion.div style={{ scale: width }}>
+      <Button
+        ref={ref}
+        onClick={onClick}
+        startIcon={item.icon}
+        sx={{
+          color: isActive ? 'hsl(0, 0%, 100%)' : 'hsl(0, 0%, 75%)',
+          textTransform: 'capitalize',
+          fontFamily: '"Poppins", "Roboto", "Helvetica", sans-serif',
+          fontSize: '0.95rem',
+          letterSpacing: '0.02em',
+          fontWeight: isActive ? 600 : 500,
+          px: 2.5,
+          py: 1,
+          borderRadius: '25px',
+          position: 'relative',
+          transition: 'all 0.3s ease',
+          background: isActive ? 'hsla(0, 0%, 100%, 0.15)' : 'transparent',
+          border: isActive ? '1px solid hsla(0, 0%, 100%, 0.25)' : '1px solid transparent',
+          '&:hover': {
+            color: 'hsl(0, 0%, 100%)',
+            background: 'hsla(0, 0%, 100%, 0.1)',
+            border: '1px solid hsla(0, 0%, 100%, 0.2)',
+            transform: 'translateY(-2px)',
+          },
+        }}
+      >
+        {item.label}
+      </Button>
+    </motion.div>
+  );
+};
 
 const Navigation: React.FC = () => {
   const navigate = useNavigate();
@@ -33,12 +89,13 @@ const Navigation: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mouseX = useMotionValue(Infinity);
 
   const navItems = [
     { label: 'Home', path: '/', icon: <Home /> },
-    { label: 'Analyze', path: '/analyze', icon: <Analytics /> },
-    { label: 'Features', path: '/features', icon: <Science /> },
-    { label: 'About', path: '/about', icon: <Info /> },
+    { label: 'Analyze', path: '/analyze', icon: <Dashboard /> },
+    { label: 'Features', path: '/features', icon: <Explore /> },
+    { label: 'About', path: '/about', icon: <InfoOutlined /> },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -53,9 +110,10 @@ const Navigation: React.FC = () => {
       sx={{
         width: 280,
         height: '100%',
-        background: 'linear-gradient(135deg, hsla(220, 35%, 10%, 0.98) 0%, hsla(220, 40%, 8%, 0.98) 100%)',
-        backdropFilter: 'blur(20px)',
-        borderRight: '1px solid hsla(200, 100%, 55%, 0.2)',
+        background: 'hsla(0, 0%, 10%, 0.92)',
+        backdropFilter: 'blur(40px)',
+        WebkitBackdropFilter: 'blur(40px)',
+        borderRight: '1px solid hsla(0, 0%, 100%, 0.15)',
       }}
     >
       <Box
@@ -64,20 +122,28 @@ const Navigation: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid hsla(200, 100%, 55%, 0.1)',
+          borderBottom: '1px solid hsla(0, 0%, 100%, 0.1)',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Security sx={{ color: 'hsl(200, 100%, 55%)', fontSize: 28 }} />
+          <Box
+            component="img"
+            src="https://vucvdpamtrjkzmubwlts.supabase.co/storage/v1/object/public/users/user_2rQ1QHrJyxpmWMHhqhANzWMc64n/avatar.png"
+            alt="Logo"
+            sx={{
+              width: 30,
+              height: 30,
+              borderRadius: '50%',
+              objectFit: 'cover'
+            }}
+          />
           <Typography
             variant="h6"
             sx={{
-              background: 'linear-gradient(135deg, hsl(200, 100%, 55%) 0%, hsl(200, 100%, 55%) 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
+              color: 'hsl(0, 0%, 95%)',
+              fontFamily: '"Poppins", "Roboto", "Helvetica", sans-serif',
               fontWeight: 700,
-              fontSize: '1rem',
+              fontSize: '1.1rem',
               letterSpacing: '0.05em',
             }}
           >
@@ -86,7 +152,12 @@ const Navigation: React.FC = () => {
         </Box>
         <IconButton
           onClick={() => setMobileOpen(false)}
-          sx={{ color: 'hsl(200, 100%, 55%)' }}
+          sx={{
+            color: 'hsl(0, 0%, 95%)',
+            '&:hover': {
+              backgroundColor: 'hsla(0, 0%, 100%, 0.1)',
+            },
+          }}
         >
           <Close />
         </IconButton>
@@ -99,30 +170,38 @@ const Navigation: React.FC = () => {
               onClick={() => handleNavClick(item.path)}
               sx={{
                 mx: 2,
-                borderRadius: '12px',
+                borderRadius: '16px',
                 py: 2,
+                fontFamily: '"Poppins", "Roboto", "Helvetica", sans-serif',
                 background: isActive(item.path)
-                  ? 'linear-gradient(135deg, hsla(200, 100%, 55%, 0.15) 0%, hsla(200, 100%, 55%, 0.1) 100%)'
+                  ? 'hsla(0, 0%, 100%, 0.12)'
                   : 'transparent',
                 border: isActive(item.path)
-                  ? '1px solid hsla(200, 100%, 55%, 0.4)'
+                  ? '1px solid hsla(0, 0%, 100%, 0.25)'
                   : '1px solid transparent',
+                transition: 'all 0.3s ease',
                 '&:hover': {
-                  background: 'hsla(200, 100%, 55%, 0.1)',
-                  borderColor: 'hsla(200, 100%, 55%, 0.3)',
+                  background: 'hsla(0, 0%, 100%, 0.08)',
+                  borderColor: 'hsla(0, 0%, 100%, 0.2)',
+                  transform: 'translateX(5px)',
                 },
               }}
             >
-              <Box sx={{ color: isActive(item.path) ? 'hsl(200, 100%, 55%)' : 'text.secondary', mr: 2 }}>
+              <Box sx={{
+                color: isActive(item.path) ? 'hsl(0, 0%, 100%)' : 'hsl(0, 0%, 75%)',
+                mr: 2,
+                transition: 'all 0.3s ease',
+              }}>
                 {item.icon}
               </Box>
               <ListItemText
                 primary={item.label}
                 primaryTypographyProps={{
-                  fontWeight: isActive(item.path) ? 700 : 500,
+                  fontFamily: '"Poppins", "Roboto", "Helvetica", sans-serif',
+                  fontWeight: isActive(item.path) ? 600 : 500,
                   fontSize: '1rem',
-                  letterSpacing: '0.05em',
-                  color: isActive(item.path) ? 'hsl(200, 100%, 55%)' : 'text.primary',
+                  letterSpacing: '0.02em',
+                  color: isActive(item.path) ? 'hsl(0, 0%, 100%)' : 'hsl(0, 0%, 85%)',
                 }}
               />
             </ListItemButton>
@@ -135,16 +214,52 @@ const Navigation: React.FC = () => {
   return (
     <>
       <AppBar
-        position="sticky"
+        position="fixed"
         elevation={0}
         sx={{
-          background: 'hsla(220, 35%, 10%, 0.85)',
-          backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid hsla(200, 100%, 55%, 0.2)',
+          background: 'transparent',
+          borderBottom: 'none',
           zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pt: 2,
+          top: 0,
         }}
       >
-        <Toolbar sx={{ py: 1.5, px: { xs: 2, md: 4 } }}>
+        <motion.div
+          initial={{ scaleX: 0, opacity: 0 }}
+          animate={{ scaleX: 1, opacity: 1 }}
+          transition={{
+            duration: 0.6,
+            ease: [0.4, 0, 0.2, 1],
+            opacity: { duration: 0.4 }
+          }}
+          style={{
+            width: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+        <Toolbar
+          sx={{
+            py: 1.8,
+            px: { xs: 2, md: 4 },
+            width: { xs: '95%', md: '75%' },
+            background: 'hsla(0, 0%, 100%, 0.08)',
+            backdropFilter: 'blur(80px) saturate(150%)',
+            WebkitBackdropFilter: 'blur(80px) saturate(150%)',
+            borderRadius: '50px',
+            border: '1px solid hsla(0, 0%, 100%, 0.15)',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37), inset 0 1px 0 hsla(0, 0%, 100%, 0.1)',
+            transition: 'all 0.3s ease-in-out',
+            '&:hover': {
+              background: 'hsla(0, 0%, 100%, 0.12)',
+              border: '1px solid hsla(0, 0%, 100%, 0.2)',
+              boxShadow: '0 12px 40px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 hsla(0, 0%, 100%, 0.15)',
+            },
+          }}
+        >
           <Box
             sx={{
               display: 'flex',
@@ -155,28 +270,35 @@ const Navigation: React.FC = () => {
             }}
             onClick={() => handleNavClick('/')}
           >
-            <Security
+            <Box
+              component="img"
+              src="https://vucvdpamtrjkzmubwlts.supabase.co/storage/v1/object/public/users/user_2rQ1QHrJyxpmWMHhqhANzWMc64n/avatar.png"
+              alt="Logo"
               sx={{
-                color: 'hsl(200, 100%, 55%)',
-                filter: 'drop-shadow(0 0 8px hsl(200, 100%, 55%))',
-                animation: 'pulse 3s infinite',
-                fontSize: { xs: 24, md: 28 },
+                width: { xs: 28, md: 32 },
+                height: { xs: 28, md: 32 },
+                borderRadius: '50%',
+                objectFit: 'cover',
+                filter: 'drop-shadow(0 0 8px hsla(0, 0%, 100%, 0.3))',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  filter: 'drop-shadow(0 0 12px hsla(0, 0%, 100%, 0.5))',
+                  transform: 'scale(1.05) rotate(-5deg)',
+                },
               }}
             />
             <Typography
               variant="h6"
               sx={{
-                background: 'linear-gradient(135deg, hsl(200, 100%, 55%) 0%, hsl(200, 100%, 55%) 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                color: 'hsl(0, 0%, 95%)',
+                fontFamily: '"Poppins", "Roboto", "Helvetica", sans-serif',
                 fontWeight: 700,
-                fontSize: { xs: '1rem', md: '1.25rem' },
-                letterSpacing: '0.02em',
+                fontSize: { xs: '0.9rem', md: '1.05rem' },
+                letterSpacing: '0.05em',
                 display: { xs: 'none', sm: 'block' },
               }}
             >
-              DEEPFAKE DETECTION SYSTEM
+              DEEPFAKE DETECTION
             </Typography>
           </Box>
 
@@ -184,58 +306,38 @@ const Navigation: React.FC = () => {
 
           {/* Desktop Navigation */}
           {!isMobile && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+              onMouseMove={(e) => mouseX.set(e.pageX)}
+              onMouseLeave={() => mouseX.set(Infinity)}
+            >
               {navItems.map((item) => (
-                <Button
+                <NavItemWithMagnification
                   key={item.path}
+                  item={item}
+                  isActive={isActive(item.path)}
                   onClick={() => handleNavClick(item.path)}
-                  startIcon={item.icon}
-                  sx={{
-                    color: isActive(item.path)
-                      ? 'hsl(200, 100%, 55%)'
-                      : 'text.secondary',
-                    textTransform: 'uppercase',
-                    fontSize: '0.85rem',
-                    letterSpacing: '0.1em',
-                    fontWeight: isActive(item.path) ? 700 : 500,
-                    px: 2,
-                    py: 1,
-                    borderRadius: '8px',
-                    position: 'relative',
-                    '&::after': {
-                      content: '""',
-                      position: 'absolute',
-                      bottom: 0,
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: isActive(item.path) ? '80%' : '0%',
-                      height: '2px',
-                      background: 'hsl(200, 100%, 55%)',
-                      transition: 'width 0.3s ease',
-                      boxShadow: isActive(item.path) ? '0 0 10px hsl(200, 100%, 55%)' : 'none',
-                    },
-                    '&:hover': {
-                      color: 'hsl(200, 100%, 55%)',
-                      backgroundColor: 'hsla(200, 100%, 55%, 0.1)',
-                    },
-                  }}
-                >
-                  {item.label}
-                </Button>
+                  mouseX={mouseX}
+                />
               ))}
               <Chip
                 label="AI-POWERED"
                 size="small"
                 sx={{
                   ml: 2,
-                  background: 'hsla(200, 100%, 55%, 0.15)',
-                  border: '1px solid hsla(200, 100%, 55%, 0.4)',
-                  color: 'hsl(200, 100%, 55%)',
+                  background: 'hsla(0, 0%, 100%, 0.12)',
+                  border: '1px solid hsla(0, 0%, 100%, 0.3)',
+                  color: 'hsl(0, 0%, 95%)',
+                  fontFamily: '"Poppins", "Roboto", "Helvetica", sans-serif',
                   fontWeight: 600,
-                  fontSize: '0.7rem',
-                  letterSpacing: '0.1em',
+                  fontSize: '0.75rem',
+                  letterSpacing: '0.08em',
                   textTransform: 'uppercase',
-                  boxShadow: '0 0 10px hsla(200, 100%, 55%, 0.2)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: 'hsla(0, 0%, 100%, 0.18)',
+                    transform: 'scale(1.05)',
+                  },
                 }}
               />
             </Box>
@@ -246,11 +348,14 @@ const Navigation: React.FC = () => {
             <IconButton
               onClick={() => setMobileOpen(true)}
               sx={{
-                color: 'hsl(200, 100%, 55%)',
-                border: '1px solid hsla(200, 100%, 55%, 0.3)',
+                color: 'hsl(0, 0%, 95%)',
+                border: '1px solid hsla(0, 0%, 100%, 0.25)',
+                backdropFilter: 'blur(10px)',
+                transition: 'all 0.3s ease',
                 '&:hover': {
-                  borderColor: 'hsl(200, 100%, 55%)',
-                  backgroundColor: 'hsla(200, 100%, 55%, 0.1)',
+                  borderColor: 'hsla(0, 0%, 100%, 0.4)',
+                  backgroundColor: 'hsla(0, 0%, 100%, 0.1)',
+                  transform: 'scale(1.05)',
                 },
               }}
             >
@@ -258,6 +363,7 @@ const Navigation: React.FC = () => {
             </IconButton>
           )}
         </Toolbar>
+        </motion.div>
       </AppBar>
 
       {/* Mobile Drawer */}

@@ -232,7 +232,7 @@ const EnhancedVideoAnalysis: React.FC = () => {
     }, [uploading]);
 
     return (
-        <Box>
+        <Box sx={{ pt: { xs: 10, md: 12 } }}>
             {/* Particle Burst Animation */}
             <ParticleBurst
                 trigger={showParticleBurst}
@@ -869,7 +869,7 @@ const EnhancedVideoAnalysis: React.FC = () => {
             )}
 
             {result && (
-                <Box>
+                <Box sx={{ pt: { xs: 2, md: 3 } }}>
                     {/* Overall Results Summary */}
                     <Card
                         sx={{

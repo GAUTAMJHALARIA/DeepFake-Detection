@@ -36,6 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 bearer_scheme = HTTPBearer(auto_error=REQUIRE_AUTH)
 
 

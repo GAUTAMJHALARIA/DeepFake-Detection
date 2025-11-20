@@ -14,6 +14,15 @@ const DynamicHero: React.FC<DynamicHeroProps> = ({ onGetStarted }) => {
   const ref = React.useRef(null);
   const inView = useInView(ref);
 
+  // Generate random dots positions once
+  const [dots] = useState(() =>
+    Array.from({ length: 20 }, () => ({
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      delay: Math.random() * 2,
+    }))
+  );
+
   useEffect(() => {
     if (inView) {
       controls.start('visible');
@@ -68,8 +77,36 @@ const DynamicHero: React.FC<DynamicHeroProps> = ({ onGetStarted }) => {
         overflow: 'visible',
         pt: { xs: 12, md: 8 },
         pb: { xs: 8, md: 12 },
+        background: '#0A0F17',
+        // Subtle grid pattern overlay
+        backgroundImage: `
+          linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px)
+        `,
+        backgroundSize: '50px 50px',
       }}
     >
+      {/* Glowing teal/cyan dots scattered across background */}
+      {dots.map((dot, i) => (
+        <Box
+          key={i}
+          sx={{
+            position: 'absolute',
+            width: '4px',
+            height: '4px',
+            borderRadius: '50%',
+            background: '#00FFFF',
+            left: `${dot.left}%`,
+            top: `${dot.top}%`,
+            boxShadow: '0 0 10px #00FFFF, 0 0 20px #00CED1',
+            opacity: 0.6,
+            animation: 'pulse 3s ease-in-out infinite',
+            animationDelay: `${dot.delay}s`,
+            zIndex: 0,
+          }}
+        />
+      ))}
+
       {/* Animated Background Orbs */}
       <Box
         sx={{
@@ -77,7 +114,7 @@ const DynamicHero: React.FC<DynamicHeroProps> = ({ onGetStarted }) => {
           width: '600px',
           height: '600px',
           borderRadius: '50%',
-          background: 'radial-gradient(circle, hsl(200, 100%, 55%, 0.15) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(0, 255, 255, 0.1) 0%, transparent 70%)',
           left: `calc(20% + ${mousePosition.x * 2}px)`,
           top: `calc(20% + ${mousePosition.y * 2}px)`,
           filter: 'blur(60px)',
@@ -91,7 +128,7 @@ const DynamicHero: React.FC<DynamicHeroProps> = ({ onGetStarted }) => {
           width: '500px',
           height: '500px',
           borderRadius: '50%',
-          background: 'radial-gradient(circle, hsl(300, 100%, 60%, 0.12) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(0, 206, 209, 0.08) 0%, transparent 70%)',
           right: `calc(15% - ${mousePosition.x * 1.5}px)`,
           bottom: `calc(15% - ${mousePosition.y * 1.5}px)`,
           filter: 'blur(50px)',
@@ -133,11 +170,12 @@ const DynamicHero: React.FC<DynamicHeroProps> = ({ onGetStarted }) => {
                   variant="overline"
                   sx={{
                     display: 'block',
-                    mb: 2,
-                    color: 'hsl(200, 100%, 55%)',
-                    fontSize: '0.9rem',
-                    letterSpacing: '0.3em',
-                    fontWeight: 600,
+                    mb: 2.5,
+                    color: '#66A3FF',
+                    fontSize: { xs: '0.75rem', md: '0.875rem' },
+                    letterSpacing: '0.2em',
+                    fontWeight: 500,
+                    textTransform: 'uppercase',
                   }}
                 >
                   NEXT-GEN DETECTION
@@ -149,11 +187,11 @@ const DynamicHero: React.FC<DynamicHeroProps> = ({ onGetStarted }) => {
                   variant="h1"
                   component="div"
                   sx={{
-                    fontSize: { xs: '3rem', md: '5rem', lg: '6.5rem' },
-                    fontWeight: 900,
-                    lineHeight: 1.15,
-                    mb: 3,
-                    letterSpacing: '-0.04em',
+                    fontSize: { xs: '2.5rem', md: '4.5rem', lg: '5.5rem' },
+                    fontWeight: 800,
+                    lineHeight: 1.1,
+                    mb: 3.5,
+                    letterSpacing: '-0.02em',
                     position: 'relative',
                     textTransform: 'uppercase',
                     overflow: 'visible',
@@ -161,19 +199,15 @@ const DynamicHero: React.FC<DynamicHeroProps> = ({ onGetStarted }) => {
                     whiteSpace: 'normal',
                     display: 'block',
                     width: '100%',
+                    color: '#FFFFFF',
                   }}
                 >
                   <Box
                     component="span"
                     sx={{
                       display: 'block',
-                      background: 'linear-gradient(135deg, hsl(200, 100%, 55%) 0%, hsl(200, 100%, 55%) 30%, hsl(300, 100%, 60%) 60%, hsl(200, 100%, 55%) 100%)',
-                      backgroundSize: '200% auto',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                      animation: 'gradientText 4s ease infinite',
-                      mb: 1,
+                      color: '#FFFFFF',
+                      mb: 0.5,
                     }}
                   >
                     DETECT
@@ -182,26 +216,10 @@ const DynamicHero: React.FC<DynamicHeroProps> = ({ onGetStarted }) => {
                     component="span"
                     sx={{
                       display: 'block',
-                      background: 'linear-gradient(135deg, hsl(200, 100%, 55%) 0%, hsl(200, 100%, 55%) 30%, hsl(300, 100%, 60%) 60%, hsl(200, 100%, 55%) 100%)',
-                      backgroundSize: '200% auto',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                      animation: 'gradientText 4s ease infinite',
+                      color: '#FFFFFF',
                       position: 'relative',
                       width: '100%',
                       overflow: 'visible',
-                      '&::after': {
-                        content: '""',
-                        position: 'absolute',
-                        left: 0,
-                        bottom: '0.1em',
-                        width: '100%',
-                        height: '0.15em',
-                        background: 'linear-gradient(90deg, hsl(200, 100%, 55%), hsl(300, 100%, 60%))',
-                        opacity: 0.3,
-                        filter: 'blur(8px)',
-                      },
                     }}
                   >
                     DEEPFAKES
@@ -211,24 +229,23 @@ const DynamicHero: React.FC<DynamicHeroProps> = ({ onGetStarted }) => {
 
               <motion.div variants={itemVariants}>
                 <Typography
-                  variant="h5"
+                  variant="body1"
                   sx={{
-                    color: 'text.secondary',
-                    mb: 4,
-                    lineHeight: 1.6,
-                    fontSize: { xs: '1.1rem', md: '1.4rem' },
-                    maxWidth: '600px',
-                    fontWeight: 300,
-                    letterSpacing: '0.02em',
+                    color: '#B0B0B0',
+                    mb: 4.5,
+                    lineHeight: 1.7,
+                    fontSize: { xs: '1rem', md: '1.125rem' },
+                    maxWidth: '580px',
+                    fontWeight: 400,
+                    letterSpacing: '0.01em',
                   }}
                 >
                   Uncover synthetic media with{' '}
                   <Box
                     component="span"
                     sx={{
-                      color: 'hsl(200, 100%, 55%)',
-                      fontWeight: 600,
-                      textShadow: '0 0 20px hsla(200, 100%, 55%, 0.5)',
+                      color: '#4285F4',
+                      fontWeight: 500,
                     }}
                   >
                     AI-powered precision
@@ -238,30 +255,40 @@ const DynamicHero: React.FC<DynamicHeroProps> = ({ onGetStarted }) => {
               </motion.div>
 
               <motion.div variants={itemVariants}>
-                <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 4 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: 2.5,
+                    flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                    mb: 4,
+                    alignItems: 'center',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                  }}
+                >
                   <motion.div
-                    whileHover={{ scale: 1.05, y: -2 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.03, y: -2 }}
+                    whileTap={{ scale: 0.97 }}
                   >
                     <Button
                       variant="contained"
                       size="large"
                       onClick={onGetStarted}
-                      startIcon={<PlayArrow />}
+                      startIcon={<PlayArrow sx={{ color: '#FFFFFF', fontSize: '1.25rem' }} />}
                       sx={{
-                        px: 5,
-                        py: 1.8,
-                        fontSize: '1.1rem',
-                        fontWeight: 700,
+                        px: { xs: 4, md: 5 },
+                        py: { xs: 1.5, md: 1.75 },
+                        fontSize: { xs: '0.875rem', md: '0.9375rem' },
+                        fontWeight: 600,
                         textTransform: 'uppercase',
-                        letterSpacing: '0.15em',
-                        background: 'linear-gradient(135deg, hsl(200, 100%, 55%) 0%, hsl(200, 100%, 55%) 100%)',
-                        color: 'hsl(220, 40%, 8%)',
-                        boxShadow: '0 0 40px hsla(200, 100%, 55%, 0.5), 0 10px 30px rgba(0,0,0,0.3)',
-                        borderRadius: '12px',
-                        border: '2px solid transparent',
+                        letterSpacing: '0.1em',
+                        background: 'linear-gradient(90deg, #007BFF 0%, #4285F4 100%)',
+                        color: '#FFFFFF',
+                        boxShadow: '0 0 40px rgba(66, 133, 244, 0.5), 0 10px 30px rgba(0,0,0,0.3)',
+                        borderRadius: '8px',
+                        border: 'none',
                         position: 'relative',
                         overflow: 'hidden',
+                        minWidth: { xs: '200px', md: '220px' },
                         '&::before': {
                           content: '""',
                           position: 'absolute',
@@ -269,64 +296,54 @@ const DynamicHero: React.FC<DynamicHeroProps> = ({ onGetStarted }) => {
                           left: '-100%',
                           width: '100%',
                           height: '100%',
-                          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+                          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
                           transition: 'left 0.5s',
                         },
                         '&:hover::before': {
                           left: '100%',
                         },
                         '&:hover': {
-                          background: 'linear-gradient(135deg, hsl(180, 100%, 55%) 0%, hsl(200, 100%, 60%) 100%)',
-                          boxShadow: '0 0 60px hsla(200, 100%, 55%, 0.7), 0 15px 40px rgba(0,0,0,0.4)',
+                          background: 'linear-gradient(90deg, #0056B3 0%, #3399FF 100%)',
+                          boxShadow: '0 0 60px rgba(66, 133, 244, 0.7), 0 15px 40px rgba(0,0,0,0.4)',
                           transform: 'translateY(-2px)',
                         },
                       }}
                     >
-                      Start Analysis
+                      START ANALYSIS
                     </Button>
                   </motion.div>
 
                   <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                   >
                     <Button
                       variant="outlined"
                       size="large"
                       sx={{
-                        px: 4,
-                        py: 1.8,
-                        fontSize: '1.1rem',
+                        px: { xs: 4, md: 4.5 },
+                        py: { xs: 1.5, md: 1.75 },
+                        fontSize: { xs: '0.875rem', md: '0.9375rem' },
                         fontWeight: 600,
                         textTransform: 'uppercase',
-                        letterSpacing: '0.15em',
+                        letterSpacing: '0.1em',
                         borderWidth: '2px',
-                        borderColor: 'hsl(300, 100%, 60%)',
-                        color: 'hsl(300, 100%, 60%)',
-                        borderRadius: '12px',
+                        borderColor: '#FFFFFF',
+                        color: '#FFFFFF',
+                        background: 'transparent',
+                        borderRadius: '8px',
                         position: 'relative',
                         overflow: 'hidden',
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '0%',
-                          height: '100%',
-                          background: 'hsla(300, 100%, 60%, 0.1)',
-                          transition: 'width 0.3s',
-                        },
-                        '&:hover::before': {
-                          width: '100%',
-                        },
+                        minWidth: { xs: '200px', md: '220px' },
                         '&:hover': {
-                          borderColor: 'hsl(300, 100%, 65%)',
-                          color: 'hsl(300, 100%, 65%)',
-                          boxShadow: '0 0 30px hsla(300, 100%, 60%, 0.4)',
+                          borderColor: '#FFFFFF',
+                          color: '#FFFFFF',
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          boxShadow: '0 0 30px rgba(255, 255, 255, 0.15)',
                         },
                       }}
                     >
-                      Explore Features
+                      EXPLORE FEATURES
                     </Button>
                   </motion.div>
                 </Box>
@@ -450,9 +467,9 @@ const DynamicHero: React.FC<DynamicHeroProps> = ({ onGetStarted }) => {
             >
               <KeyboardArrowDown
                 sx={{
-                  color: 'hsl(200, 100%, 55%)',
+                  color: '#4285F4',
                   fontSize: '2rem',
-                  filter: 'drop-shadow(0 0 10px hsl(200, 100%, 55%))',
+                  filter: 'drop-shadow(0 0 10px rgba(66, 133, 244, 0.5))',
                   cursor: 'pointer',
                 }}
                 onClick={() => {

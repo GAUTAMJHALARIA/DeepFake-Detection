@@ -1,0 +1,3 @@
+poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+docker run --rm -p 8501:8501 -e MODEL_NAME=deepfake -v "C:\Users\jhala\OneDrive\Desktop\END TO END PROJECTS\DFD\models\deepfake:/models/deepfake:ro" tensorflow/serving:2.14.1
+ngrok http 8000

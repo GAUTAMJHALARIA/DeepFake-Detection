@@ -10,7 +10,6 @@ import AnalyzePage from './pages/AnalyzePage';
 import FeaturesPage from './pages/FeaturesPage';
 import AboutPage from './pages/AboutPage';
 import ParticleBackground from './components/ui/ParticleBackground';
-import ScanLine from './components/ui/ScanLine';
 
 const theme = createTheme({
   palette: {
@@ -135,7 +134,6 @@ function App() {
         >
           {/* Sci-Fi Effects */}
           <ParticleBackground />
-          <ScanLine />
 
           {/* Animated Grid Lines */}
           <Box

@@ -94,10 +94,7 @@ const CreativeFeatures: React.FC = () => {
                 fontSize: { xs: '2.5rem', md: '4rem' },
                 fontWeight: 900,
                 mb: 3,
-                background: 'linear-gradient(135deg, hsl(200, 100%, 55%) 0%, hsl(300, 100%, 60%) 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                color: '#FFFFFF',
                 letterSpacing: '-0.03em',
                 textTransform: 'uppercase',
               }}
