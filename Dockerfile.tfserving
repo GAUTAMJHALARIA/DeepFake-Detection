@@ -1,8 +1,32 @@
 FROM tensorflow/serving:2.14.1
 
-# Copy model files to the models directory
-# TensorFlow Serving expects models in /models/<model_name>/<version>
-COPY models/deepfake /models/deepfake
+# Install tools for downloading models
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    curl \
+    unzip \
+    tar \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build argument for model download URL
+# Set this in Render: Settings → Build & Deploy → Build Arguments
+ARG MODEL_DOWNLOAD_URL=""
+
+# Copy download script
+COPY download-models.sh /tmp/download-models.sh
+RUN chmod +x /tmp/download-models.sh
+
+# Download models if URL is provided, otherwise try to copy from context
+RUN if [ -n "$MODEL_DOWNLOAD_URL" ]; then \
+    /tmp/download-models.sh; \
+    else \
+    echo "MODEL_DOWNLOAD_URL not set. Models must be in build context."; \
+    fi
+
+# Try to copy models from build context (if they exist in repo)
+# Note: This will fail if models don't exist, which is expected if using download method
+# Uncomment the line below if models are in your repository:
+# COPY models/deepfake /models/deepfake
 
 # Set environment variables
 ENV MODEL_NAME=deepfake
