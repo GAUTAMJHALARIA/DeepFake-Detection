@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import * as d3 from 'd3';
 import axios from 'axios';
+import { API_ENDPOINTS, getApiHeaders } from '../config/api';
 
 interface FrameData {
   index: number;
@@ -58,11 +59,9 @@ const ConfidenceHeatMap: React.FC<ConfidenceHeatMapProps> = ({
       try {
         console.log('Fetching thumbnails for analysis:', analysisData.id);
         const response = await axios.get(
-          `http://localhost:8000/thumbnails/${analysisData.id}`,
+          API_ENDPOINTS.THUMBNAILS(analysisData.id),
           {
-            headers: {
-              'Authorization': 'Bearer change-me',
-            },
+            headers: getApiHeaders(),
           }
         );
 

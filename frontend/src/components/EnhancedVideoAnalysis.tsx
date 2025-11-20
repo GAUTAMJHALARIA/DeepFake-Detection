@@ -21,6 +21,7 @@ import {
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import axios from 'axios';
+import { API_ENDPOINTS, getApiHeaders } from '../config/api';
 
 import EnhancedVideoPlayer from './EnhancedVideoPlayer';
 import ConfidenceHeatMap from './ConfidenceHeatMap';
@@ -123,10 +124,10 @@ const EnhancedVideoAnalysis: React.FC = () => {
             const formData = new FormData();
             formData.append('file', file); // Use original file for upload
 
-            const response = await axios.post('http://localhost:8000/predict', formData, {
+            const response = await axios.post(API_ENDPOINTS.PREDICT, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
-                    'Authorization': 'Bearer change-me',
+                    ...getApiHeaders(),
                 },
                 onUploadProgress: (progressEvent) => {
                     if (progressEvent.total) {
@@ -173,9 +174,9 @@ const EnhancedVideoAnalysis: React.FC = () => {
             setProgress(20);
 
             const response = await axios.post(
-                'http://localhost:8000/predict-url',
+                API_ENDPOINTS.PREDICT_URL,
                 { url: urlInput.trim() },
-                { headers: { 'Content-Type': 'application/json' } }
+                { headers: getApiHeaders() }
             );
 
             setProgress(100);

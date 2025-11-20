@@ -25,6 +25,7 @@ import {
   ZoomOut,
 } from '@mui/icons-material';
 import axios from 'axios';
+import { API_ENDPOINTS, getApiHeaders } from '../config/api';
 
 interface GradCAMViewerProps {
   analysisId: string;
@@ -61,21 +62,17 @@ const GradCAMViewer: React.FC<GradCAMViewerProps> = ({
     try {
       // Load Grad-CAM heatmap
       const gradcamResponse = await axios.get(
-        `http://localhost:8000/gradcam/${analysisId}/${frameIndex}`,
+        API_ENDPOINTS.GRADCAM(analysisId, frameIndex),
         {
-          headers: {
-            'Authorization': 'Bearer change-me',
-          },
+          headers: getApiHeaders(),
         }
       );
 
       // Load frame data
       const frameResponse = await axios.get(
-        `http://localhost:8000/frames/${analysisId}/${frameIndex}`,
+        API_ENDPOINTS.FRAME(analysisId, frameIndex),
         {
-          headers: {
-            'Authorization': 'Bearer change-me',
-          },
+          headers: getApiHeaders(),
         }
       );
 

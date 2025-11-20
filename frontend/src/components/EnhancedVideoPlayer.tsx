@@ -18,6 +18,7 @@ import {
   VolumeUp,
 } from '@mui/icons-material';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { API_ENDPOINTS } from '../config/api';
 
 interface VideoFrame {
   index: number;
@@ -115,7 +116,7 @@ const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
         try {
           console.log('Fetching video from backend:', analysisData.id);
 
-          const response = await fetch(`http://localhost:8000/video/${analysisData.id}`, {
+          const response = await fetch(API_ENDPOINTS.VIDEO(analysisData.id), {
             method: 'GET',
             headers: {
               'Accept': 'video/mp4'
@@ -161,7 +162,7 @@ const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
           try {
             console.log('Fetching converted video from backend...');
 
-            const response = await fetch(`http://localhost:8000/video/${analysisData.id}`, {
+            const response = await fetch(API_ENDPOINTS.VIDEO(analysisData.id), {
               method: 'GET',
               headers: {
                 'Accept': 'video/mp4'
