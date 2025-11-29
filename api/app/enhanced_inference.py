@@ -490,7 +490,87 @@ def tfserving_predict_enhanced(batch: np.ndarray) -> np.ndarray:
                 f"Malformed TF Serving response: {json.dumps(data)[:400]}"
             )
 
-        return np.array(preds, dtype=np.float32)
+        preds_array = np.array(preds, dtype=np.float32)
+
+        # Log the raw output for debugging
+        logger.info(
+            f"Raw model output shape: {preds_array.shape}, dtype: {preds_array.dtype}"
+        )
+        if len(preds_array) > 0:
+            logger.info(
+                f"Raw model output range: [{np.min(preds_array):.6f}, {np.max(preds_array):.6f}], sample: {preds_array[0] if len(preds_array) > 0 else 'N/A'}"
+            )
+
+        # Handle different output shapes:
+        # - If shape is [batch, 2]: binary classification, take class 1 (fake) probability
+        # - If shape is [batch, 1]: single output, use as-is
+        # - If shape is [batch]: already flattened, use as-is
+        if preds_array.ndim == 2:
+            if preds_array.shape[1] == 2:
+                # Binary classification output [real_prob, fake_prob] or [fake_prob, real_prob]
+                # Check which class has higher values to determine order
+                class_0_mean = np.mean(preds_array[:, 0])
+                class_1_mean = np.mean(preds_array[:, 1])
+                logger.info(
+                    f"Binary output detected - Class 0 mean: {class_0_mean:.6f}, Class 1 mean: {class_1_mean:.6f}"
+                )
+
+                # If class 1 has higher values, it's likely [real, fake] format
+                # If class 0 has higher values, it might be [fake, real] or just need inversion
+                if class_1_mean > class_0_mean:
+                    # Likely [real_prob, fake_prob] - use class 1
+                    preds_array = preds_array[:, 1]
+                    logger.info("Using class 1 (fake) probabilities from binary output")
+                else:
+                    # Might be [fake_prob, real_prob] or need to use 1 - class_0
+                    # Try using class 0 as fake probability
+                    preds_array = preds_array[:, 0]
+                    logger.info(
+                        "Using class 0 as fake probabilities from binary output"
+                    )
+            elif preds_array.shape[1] == 1:
+                # Single output, squeeze
+                preds_array = preds_array.squeeze(axis=1)
+                logger.info("Squeezed single output dimension")
+
+        # Check if values are extremely small (like 0.00001) - might need inversion
+        if len(preds_array) > 0:
+            min_val = np.min(preds_array)
+            max_val = np.max(preds_array)
+            mean_val = np.mean(preds_array)
+
+            # If all values are very small (< 0.01) and mean is very low,
+            # the model might be outputting "real" class probabilities
+            # In that case, we want "fake" = 1 - "real"
+            if max_val < 0.01 and mean_val < 0.005:
+                logger.warning(
+                    f"Very small predictions detected (max: {max_val:.6f}), inverting to get fake probabilities"
+                )
+                preds_array = 1.0 - preds_array
+                logger.info(
+                    f"After inversion - range: [{np.min(preds_array):.6f}, {np.max(preds_array):.6f}]"
+                )
+            # Apply sigmoid if values are in logit range (typically <-10 or >10)
+            elif min_val < -5 or max_val > 5:
+                # Likely logits, apply sigmoid
+                import tensorflow as tf
+
+                preds_array = tf.nn.sigmoid(preds_array).numpy()
+                logger.info(
+                    f"Applied sigmoid to logit outputs (range was [{min_val:.2f}, {max_val:.2f}])"
+                )
+            elif min_val >= 0 and max_val <= 1:
+                # Already probabilities, use as-is
+                logger.info(
+                    f"Using probability outputs as-is (range: [{min_val:.6f}, {max_val:.6f}])"
+                )
+            else:
+                # Unusual range, log for debugging
+                logger.warning(
+                    f"Unusual prediction range: [{min_val:.6f}, {max_val:.6f}], using as-is"
+                )
+
+        return preds_array
 
     except Exception as e:
         logger.error(f"TensorFlow Serving prediction failed: {e}")
